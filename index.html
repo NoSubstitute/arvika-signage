@@ -22,6 +22,13 @@
                     fontFamily: {
                         sans: ['Inter', 'sans-serif'],
                     },
+                    keyframes: {
+                        shake: {
+                            '0%, 100%': { transform: 'translateX(0)' },
+                            '10%, 30%, 50%, 70%, 90%': { transform: 'translateX(-5px)' },
+                            '20%, 40%, 60%, 80%': { transform: 'translateX(5px)' }
+                        }
+                    },
                     colors: {
                         arvika: {
                             50: '#eef2ff',
@@ -91,7 +98,7 @@
                 <h2 class="text-xl font-bold text-white">Admin Inloggning</h2>
                 <p class="text-sm text-slate-400">Ange PIN-kod för att hantera skärmar.</p>
                 <input type="password" id="admin-pin-input" onkeypress="if(event.key === 'Enter') attemptLogin()" placeholder="••••" class="w-full bg-slate-950 border border-slate-800 rounded-xl px-4 py-3 text-center text-2xl tracking-[0.5em] text-white focus:outline-none focus:border-indigo-500 font-mono" autocomplete="off">
-                <button onclick="attemptLogin()" class="w-full bg-indigo-600 hover:bg-indigo-500 text-white font-semibold py-3 px-4 rounded-xl transition-colors shadow-lg shadow-indigo-600/20">Logga in</button>
+                <button id="login-btn" onclick="attemptLogin()" class="w-full bg-indigo-600 hover:bg-indigo-500 text-white font-semibold py-3 px-4 rounded-xl transition-colors shadow-lg shadow-indigo-600/20">Logga in</button>
             </div>
         </section>
 
@@ -663,15 +670,51 @@
 
         let currentAdminPin = '';
 
-        function attemptLogin() {
-            const pin = document.getElementById('admin-pin-input').value;
-            if (pin.length > 0) {
-                currentAdminPin = pin;
-                document.getElementById('view-login').classList.add('hidden');
-                document.getElementById('view-admin').classList.remove('hidden');
-                document.getElementById('app-header').classList.remove('hidden');
-                renderAdminDashboard();
+        async function attemptLogin() {
+            const pinInput = document.getElementById('admin-pin-input');
+            const btn = document.getElementById('login-btn');
+            const pin = pinInput.value;
+            
+            if (pin.length === 0) return;
+
+            // Visual feedback
+            const originalBtnText = btn.innerHTML;
+            btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Verifierar...';
+            btn.disabled = true;
+
+            try {
+                const res = await fetch(`${SERVER_API_URL}?action=verify`, {
+                    method: 'POST',
+                    redirect: 'follow',
+                    headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+                    body: JSON.stringify({ pin: pin })
+                });
+
+                if (res.ok) {
+                    const data = await res.json();
+                    if (data.status === 'success') {
+                        currentAdminPin = pin;
+                        document.getElementById('view-login').classList.add('hidden');
+                        document.getElementById('view-admin').classList.remove('hidden');
+                        document.getElementById('app-header').classList.remove('hidden');
+                        renderAdminDashboard();
+                    } else {
+                        throw new Error(data.error || 'Fel PIN');
+                    }
+                } else {
+                     throw new Error('Serverfel');
+                }
+            } catch (err) {
+                // Shake animation for wrong pin
+                pinInput.classList.add('border-red-500', 'animate-[shake_0.5s_ease-in-out]');
+                pinInput.value = '';
+                setTimeout(() => {
+                    pinInput.classList.remove('border-red-500', 'animate-[shake_0.5s_ease-in-out]');
+                }, 500);
             }
+
+            btn.innerHTML = originalBtnText;
+            btn.disabled = false;
         }
 
         function switchMode(mode) {
