@@ -1179,6 +1179,21 @@
                 `;
                 canvas.appendChild(box);
             });
+
+            // Visualize Clock
+            if (current.clock && current.clock.enabled) {
+                const clockBox = document.createElement('div');
+                clockBox.className = 'absolute text-white font-bold tracking-tight drop-shadow-md z-40 pointer-events-none flex items-center justify-center';
+                clockBox.style.left = `${current.clock.x}%`;
+                clockBox.style.top = `${current.clock.y}%`;
+                clockBox.style.fontSize = `${Math.max(1, current.clock.size * 0.4)}rem`; 
+                clockBox.style.textShadow = '0 2px 6px rgba(0,0,0,0.9)';
+                
+                const now = new Date();
+                clockBox.innerText = now.toLocaleTimeString('sv-SE', { hour: '2-digit', minute: '2-digit' });
+                
+                canvas.appendChild(clockBox);
+            }
         }
 
         function renderZonesConfigList(current) {
