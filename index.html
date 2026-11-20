@@ -468,6 +468,7 @@
                             <option value="75">75% (Förminskad)</option>
                             <option value="100" selected>100% (Normal)</option>
                             <option value="125">125% (Förstorad)</option>
+                            <option value="135">135% (Beskär 16:9 -> 32:9)</option>
                             <option value="150">150% (Stor text)</option>
                             <option value="200">200% (Dubbel)</option>
                         </select>
@@ -1462,9 +1463,11 @@
                 zoneWrapper.style.width = `${z.width}%`;
                 zoneWrapper.style.height = `${z.height}%`;
 
-                const zoomScale = (z.zoom || 100) / 100;
-                const iframeWidth = 100 / zoomScale;
-                const iframeHeight = 100 / zoomScale;
+                const zoomPercent = z.zoom || 100;
+                
+                // If zoom is 100, just fit exactly
+                const iframeWidth = zoomPercent;
+                const iframeHeight = zoomPercent;
 
                 const finalUrl = fixAndFormatUrl(z.url, z.useProxy);
 
@@ -1474,7 +1477,7 @@
                 iframe.className = 'absolute top-1/2 left-1/2 border-0';
                 iframe.style.width = `${iframeWidth}%`;
                 iframe.style.height = `${iframeHeight}%`;
-                iframe.style.transform = `translate(-50%, -50%) scale(${zoomScale})`;
+                iframe.style.transform = `translate(-50%, -50%)`;
                 iframe.setAttribute('allow', 'autoplay; fullscreen');
 
                 zoneWrapper.appendChild(iframe);
