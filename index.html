@@ -1471,11 +1471,10 @@
                 const iframe = document.createElement('iframe');
                 iframe.id = `kiosk-iframe-zone-${idx}`;
                 iframe.src = finalUrl;
-                iframe.className = 'border-0 w-full h-full';
+                iframe.className = 'absolute top-1/2 left-1/2 border-0';
                 iframe.style.width = `${iframeWidth}%`;
                 iframe.style.height = `${iframeHeight}%`;
-                iframe.style.transform = `scale(${zoomScale})`;
-                iframe.style.transformOrigin = '0 0';
+                iframe.style.transform = `translate(-50%, -50%) scale(${zoomScale})`;
                 iframe.setAttribute('allow', 'autoplay; fullscreen');
 
                 zoneWrapper.appendChild(iframe);
