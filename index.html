@@ -1,0 +1,1629 @@
+<!DOCTYPE html>
+<html lang="sv" class="h-full bg-slate-950 text-slate-100">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="theme-color" content="#4338ca">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="apple-mobile-web-app-title" content="Arvika Signage">
+    
+    <!-- Dynamic PWA Manifest Link Placeholder -->
+    <link id="pwa-manifest-link" rel="manifest">
+    
+    <title>Arvika Education - Digital Signage Manager (PWA & Kiosk)</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/js/all.min.js"></script>
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    fontFamily: {
+                        sans: ['Inter', 'sans-serif'],
+                    },
+                    colors: {
+                        arvika: {
+                            50: '#eef2ff',
+                            500: '#4338ca',
+                            600: '#3730a3',
+                            700: '#312e81',
+                        }
+                    }
+                }
+            }
+        }
+    </script>
+    <style>
+        .fade-in { animation: fadeIn 0.3s ease-in-out; }
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(4px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        ::-webkit-scrollbar { width: 8px; height: 8px; }
+        ::-webkit-scrollbar-track { background: #0f172a; }
+        ::-webkit-scrollbar-thumb { background: #334155; border-radius: 4px; }
+
+        .aspect-16-9 {
+            aspect-ratio: 16 / 9;
+        }
+    </style>
+</head>
+<body class="h-full font-sans antialiased flex flex-col justify-between overflow-x-hidden bg-slate-950 text-slate-100">
+
+    <header id="app-header" class="bg-slate-900 border-b border-slate-800 px-4 md:px-6 py-3.5 flex flex-wrap items-center justify-between gap-4 sticky top-0 z-40 shadow-md">
+        <div class="flex items-center space-x-3">
+            <div class="bg-indigo-600 text-white p-2.5 rounded-xl shadow-lg shadow-indigo-600/30">
+                <i class="fa-solid font-bold fa-tv text-xl"></i>
+            </div>
+            <div>
+                <h1 class="text-base md:text-lg font-bold text-white tracking-tight flex items-center gap-2">
+                    Arvika Signage Manager
+                    <span class="bg-indigo-950 text-indigo-400 text-[11px] px-2.5 py-0.5 rounded-full border border-indigo-800 font-mono">PWA Ready</span>
+                </h1>
+                <p class="text-xs text-slate-400">Skärmhantering för arvika.com | Kiosk Player</p>
+            </div>
+        </div>
+
+        <div class="flex items-center space-x-2.5">
+            <!-- PWA Install Button (Hidden by default until install event fires) -->
+            <button id="btn-pwa-install" onclick="installPWA()" class="hidden bg-emerald-600 hover:bg-emerald-500 text-white px-3 py-2 rounded-xl text-xs font-semibold shadow-lg shadow-emerald-600/20 transition items-center">
+                <i class="fa-solid fa-download mr-1.5"></i> Installera App
+            </button>
+
+            <button id="btn-mode-admin" onclick="switchMode('admin')" class="px-3.5 py-2 rounded-xl font-medium text-xs transition bg-indigo-600 text-white shadow-md shadow-indigo-600/20">
+                <i class="fa-solid fa-sliders mr-1.5"></i> Admin
+            </button>
+            <button id="btn-mode-player" onclick="switchMode('player')" class="px-3.5 py-2 rounded-xl font-medium text-xs transition bg-slate-800 text-slate-300 hover:bg-slate-700 hover:text-white">
+                <i class="fa-solid fa-play mr-1.5"></i> Kiosk Preview
+            </button>
+        </div>
+    </header>
+
+    <main class="flex-1 p-4 md:p-8 max-w-7xl w-full mx-auto">
+
+        <!-- ==================== ADMIN DASHBOARD VIEW ==================== -->
+        <section id="view-admin" class="space-y-6 fade-in">
+            
+            <!-- Screen Selector Bar -->
+            <div class="bg-slate-900 border border-slate-800 rounded-2xl p-4 flex flex-wrap items-center justify-between gap-4 shadow-lg">
+                <div class="flex-1 overflow-x-auto" id="screen-tabs-container">
+                    <!-- Screen categories and tabs dynamically generated -->
+                </div>
+                <div class="flex items-center space-x-2 shrink-0">
+                    <button onclick="openModal('modal-manage-categories')" class="bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 font-medium text-xs px-3.5 py-2.5 rounded-xl flex items-center transition">
+                        <i class="fa-solid fa-folder-tree text-indigo-400 mr-2"></i> Kategorier
+                    </button>
+                    <button onclick="openModal('modal-manage-templates')" class="bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 font-medium text-xs px-3.5 py-2.5 rounded-xl flex items-center transition">
+                        <i class="fa-solid fa-layer-group text-indigo-400 mr-2"></i> Mallar
+                    </button>
+                    <button onclick="openModal('modal-add-screen')" class="bg-indigo-600 hover:bg-indigo-500 text-white font-medium text-xs px-4 py-2.5 rounded-xl flex items-center transition shadow-lg shadow-indigo-600/20 whitespace-nowrap">
+                        <i class="fa-solid fa-plus mr-2"></i> Ny skärm
+                    </button>
+                </div>
+            </div>
+
+            <!-- Active Screen Settings Header -->
+            <div class="bg-slate-900/90 border border-slate-800 rounded-2xl p-6 backdrop-blur shadow-md">
+                <div class="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-6">
+                    <div>
+                        <div class="flex flex-wrap items-center gap-3">
+                            <h2 id="active-screen-name" class="text-2xl font-bold text-white tracking-tight">Skärmnamn</h2>
+                            <span id="active-screen-category-badge" class="bg-slate-800 text-slate-300 border border-slate-700 text-xs px-3 py-1 rounded-full font-medium flex items-center gap-1.5">
+                                <i class="fa-solid fa-folder text-indigo-400 text-[10px]"></i> <span id="active-screen-category-text">Kategori</span>
+                            </span>
+                            <button onclick="openEditScreenModal()" class="bg-slate-800/80 hover:bg-slate-700 text-slate-300 text-xs px-2.5 py-1 rounded-lg border border-slate-700 transition flex items-center" title="Flytta skärm / Ändra detaljer">
+                                <i class="fa-solid fa-right-left text-indigo-400 mr-1.5"></i> Flytta / Redigera
+                            </button>
+                            <span id="active-screen-zone-badge" class="bg-indigo-950 text-indigo-300 border border-indigo-700/50 text-xs px-3 py-1 rounded-full font-medium">4 Zoner</span>
+                        </div>
+                        <p id="active-screen-desc" class="text-sm text-slate-400 mt-1">Platsbeskrivning</p>
+                    </div>
+
+                    <!-- Zone Count Switcher & Template Save -->
+                    <div class="flex flex-wrap items-center gap-3">
+                        <span class="text-xs font-semibold text-slate-400 uppercase tracking-wider">Antal Zoner:</span>
+                        <div class="bg-slate-950 border border-slate-800 rounded-xl p-1 flex items-center space-x-1">
+                            <button id="btn-zone-count-1" onclick="setZoneCount(1)" class="px-3 py-1.5 rounded-lg text-xs font-medium transition text-slate-400 hover:text-white">1</button>
+                            <button id="btn-zone-count-2" onclick="setZoneCount(2)" class="px-3 py-1.5 rounded-lg text-xs font-medium transition text-slate-400 hover:text-white">2</button>
+                            <button id="btn-zone-count-3" onclick="setZoneCount(3)" class="px-3 py-1.5 rounded-lg text-xs font-medium transition text-slate-400 hover:text-white">3</button>
+                            <button id="btn-zone-count-4" onclick="setZoneCount(4)" class="px-3 py-1.5 rounded-lg text-xs font-medium transition text-slate-400 hover:text-white">4</button>
+                        </div>
+
+                        <button onclick="saveCurrentScreenAsTemplate()" class="bg-slate-800 hover:bg-slate-700 text-indigo-300 border border-slate-700 font-medium text-xs px-3.5 py-2 rounded-xl transition flex items-center" title="Spara som mall">
+                            <i class="fa-solid fa-floppy-disk mr-1.5"></i> Mall
+                        </button>
+
+                        <button onclick="promptDeleteCurrentScreen()" class="bg-rose-950/60 hover:bg-rose-900 text-rose-300 border border-rose-800/60 font-medium text-xs px-3.5 py-2 rounded-xl transition flex items-center" title="Ta bort skärm">
+                            <i class="fa-solid fa-trash-can mr-1.5"></i> Ta bort
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            <div class="grid grid-cols-1 lg:grid-cols-12 gap-8">
+                
+                <!-- Left Column (8 cols): 16:9 Canvas Layout Visualizer & Presets -->
+                <div class="lg:col-span-8 space-y-6">
+                    
+                    <div class="bg-slate-900 border border-slate-800 rounded-2xl p-6 space-y-4 shadow-lg">
+                        <div class="flex flex-wrap justify-between items-center gap-2 border-b border-slate-800 pb-4">
+                            <div>
+                                <h3 class="text-base font-bold text-white flex items-center">
+                                    <i class="fa-solid fa-vector-square text-indigo-400 mr-2"></i> Visualisering i 16:9 Skärmformat
+                                </h3>
+                                <p class="text-xs text-slate-400">Procentuell fördelning och zoomning på TV-skärmen.</p>
+                            </div>
+                            
+                            <!-- Quick Presets Dropdown/Buttons -->
+                            <div class="flex items-center space-x-2">
+                                <span class="text-[11px] text-slate-400 font-medium">Snabbmönster:</span>
+                                <div id="presets-container" class="flex flex-wrap gap-1">
+                                    <!-- Dynamic Layout Presets per zone count -->
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- 16:9 Canvas Preview Box -->
+                        <div class="w-full bg-slate-950 border-2 border-indigo-900/60 rounded-xl overflow-hidden relative shadow-inner aspect-16-9" id="screen-visualizer-canvas">
+                            <!-- Zones rendered dynamically inside 16:9 ratio box -->
+                        </div>
+                    </div>
+
+                    <!-- Zone Configuration List Cards -->
+                    <div class="space-y-4">
+                        <h3 class="text-base font-bold text-white flex items-center">
+                            <i class="fa-solid fa-sliders text-indigo-400 mr-2"></i> Inställningar för Aktiva Zoner
+                        </h3>
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-4" id="zones-config-list">
+                            <!-- Zone config cards rendered via JS -->
+                        </div>
+                    </div>
+
+                </div>
+
+                <!-- Right Column (4 cols): Kiosk URL & Workspace instructions -->
+                <div class="lg:col-span-4 space-y-6">
+                    <div class="bg-slate-900 border border-slate-800 rounded-2xl p-6 shadow-lg space-y-4">
+                        <h3 class="text-base font-bold text-white flex items-center">
+                            <i class="fa-solid fa-link text-indigo-400 mr-2"></i> Kiosk-URL för Chromebox
+                        </h3>
+                        <p class="text-xs text-slate-400 leading-relaxed">
+                            Klistra in denna länk i **Google Admin Console** (*Kiosker / Web-appar*) för managerade ChromeOS-enheter.
+                        </p>
+                        
+                        <div class="space-y-2">
+                            <label class="text-xs font-semibold text-slate-300">Unik Skärm-URL:</label>
+                            <div class="flex items-center bg-slate-950 border border-slate-800 rounded-xl p-2.5">
+                                <input type="text" id="kiosk-url-display" readonly value="" class="bg-transparent text-xs text-indigo-300 font-mono flex-1 outline-none truncate mr-2">
+                                <button onclick="copyKioskUrl()" class="bg-indigo-600 hover:bg-indigo-500 text-white text-xs px-3 py-1.5 rounded-lg transition flex items-center shrink-0">
+                                    <i class="fa-solid fa-copy mr-1"></i> Kopiera
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="bg-indigo-950/30 border border-indigo-800/40 rounded-2xl p-6 space-y-3">
+                        <h4 class="text-sm font-bold text-indigo-200 flex items-center">
+                            <i class="fa-solid fa-tablet-screen-button mr-2 text-indigo-400"></i> PWA & Kiosk Tips
+                        </h4>
+                        <p class="text-xs text-slate-300 leading-relaxed">
+                            Denna app kan köras som en **PWA (Progressive Web App)** eller laddas i autostartat Web Kiosk-läge på ChromeOS-enheter. Zonerna uppdateras automatiskt i bakgrunden.
+                        </p>
+                    </div>
+                </div>
+
+            </div>
+        </section>
+
+        <!-- ==================== KIOSK PLAYER VIEW ==================== -->
+        <section id="view-player" class="hidden fixed inset-0 bg-black z-50 flex flex-col">
+            
+            <!-- Dynamic Multi-Zone Container (Enforces 16:9 / Fullscreen relative layout) -->
+            <div id="kiosk-zones-viewport" class="relative w-full h-full bg-slate-950 overflow-hidden">
+                <!-- Zone containers and scaled iframes injected here -->
+            </div>
+
+            <!-- Player Controls Overlay (Hoverable) -->
+            <div id="player-controls-overlay" class="absolute bottom-4 left-4 right-4 bg-slate-900/90 border border-slate-800 backdrop-blur rounded-2xl px-5 py-3 flex items-center justify-between text-xs text-slate-300 shadow-2xl opacity-0 hover:opacity-100 transition-opacity duration-300 z-50">
+                <div class="flex items-center space-x-3">
+                    <span id="current-screen-player-title" class="font-bold text-white">Skärmnamn</span>
+                    <span id="current-screen-zones-info" class="text-slate-400 font-mono">-- Zoner</span>
+                </div>
+                
+                <div class="flex items-center space-x-3">
+                    <select id="player-screen-selector" onchange="changePlayerScreenFromDropdown(this.value)" class="bg-slate-950 border border-slate-700 text-xs rounded-xl px-2.5 py-1 text-slate-200 focus:outline-none">
+                        <!-- Populated dynamically -->
+                    </select>
+
+                    <button onclick="switchMode('admin')" class="bg-slate-800 hover:bg-slate-700 text-slate-200 px-3.5 py-1.5 rounded-xl flex items-center transition">
+                        <i class="fa-solid fa-xmark mr-1.5"></i> Stäng Kiosk
+                    </button>
+                </div>
+            </div>
+        </section>
+
+    </main>
+
+    <!-- MODAL: ADD SCREEN -->
+    <div id="modal-add-screen" class="fixed inset-0 bg-slate-950/80 backdrop-blur-sm z-50 flex items-center justify-center p-4 hidden">
+        <div class="bg-slate-900 border border-slate-800 w-full max-w-md rounded-2xl shadow-2xl overflow-hidden fade-in">
+            <div class="px-6 py-4 border-b border-slate-800 flex justify-between items-center">
+                <h3 class="text-base font-bold text-white flex items-center">
+                    <i class="fa-solid fa-desktop text-indigo-400 mr-2"></i> Skapa ny Skärm
+                </h3>
+                <button onclick="closeModal('modal-add-screen')" class="text-slate-400 hover:text-white transition">
+                    <i class="fa-solid fa-xmark text-lg"></i>
+                </button>
+            </div>
+            <form onsubmit="handleCreateScreen(event)" class="p-6 space-y-4">
+                <div>
+                    <label class="block text-xs font-semibold text-slate-300 mb-1">Skärmnamn</label>
+                    <input type="text" id="screen-input-name" required placeholder="Ex: Entréhall, Bibliotek, Cafeteria" class="w-full bg-slate-950 border border-slate-800 rounded-xl px-3.5 py-2.5 text-sm text-white focus:outline-none focus:border-indigo-500">
+                </div>
+                <div>
+                    <label class="block text-xs font-semibold text-slate-300 mb-1">Kategori</label>
+                    <select id="screen-input-category-select" onchange="toggleCustomCategoryInput(this)" class="w-full bg-slate-950 border border-slate-800 rounded-xl px-3.5 py-2.5 text-sm text-white focus:outline-none focus:border-indigo-500">
+                        <!-- Populated dynamically -->
+                    </select>
+                    <input type="text" id="screen-input-category-custom" placeholder="Skriv ny kategori..." class="w-full bg-slate-950 border border-slate-800 rounded-xl px-3.5 py-2.5 text-sm text-white focus:outline-none focus:border-indigo-500 mt-2 hidden">
+                </div>
+                <div>
+                    <label class="block text-xs font-semibold text-slate-300 mb-1">Plats / Beskrivning</label>
+                    <input type="text" id="screen-input-desc" placeholder="Ex: Byggnad B, Plan 1" class="w-full bg-slate-950 border border-slate-800 rounded-xl px-3.5 py-2.5 text-sm text-white focus:outline-none focus:border-indigo-500">
+                </div>
+                <div>
+                    <label class="block text-xs font-semibold text-slate-300 mb-1">Använd Mall (Valfritt)</label>
+                    <select id="screen-input-template" onchange="handleTemplateSelectInModal(this)" class="w-full bg-slate-950 border border-slate-800 rounded-xl px-3.5 py-2.5 text-sm text-white focus:outline-none focus:border-indigo-500">
+                        <option value="">Ingen mall (Skapa från grunden)</option>
+                        <!-- Populated dynamically -->
+                    </select>
+                </div>
+                <div id="zonecount-container">
+                    <label class="block text-xs font-semibold text-slate-300 mb-1">Antal Startzoner</label>
+                    <select id="screen-input-zonecount" class="w-full bg-slate-950 border border-slate-800 rounded-xl px-3.5 py-2.5 text-sm text-white focus:outline-none focus:border-indigo-500">
+                        <option value="1">1 Zon (Helskärm)</option>
+                        <option value="2">2 Zoner (50/50 Splitt)</option>
+                        <option value="3">3 Zoner (Huvud + 2 Sidor)</option>
+                        <option value="4" selected>4 Zoner (2x2 Raster)</option>
+                    </select>
+                </div>
+                <div class="pt-4 flex justify-end space-x-3">
+                    <button type="button" onclick="closeModal('modal-add-screen')" class="px-4 py-2.5 rounded-xl bg-slate-800 text-slate-300 text-sm font-medium">Avbryt</button>
+                    <button type="submit" class="px-5 py-2.5 rounded-xl bg-indigo-600 text-white text-sm font-medium shadow-lg shadow-indigo-600/20">Skapa Skärm</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- MODAL: MANAGE TEMPLATES -->
+    <div id="modal-manage-templates" class="fixed inset-0 bg-slate-950/80 backdrop-blur-sm z-50 flex items-center justify-center p-4 hidden">
+        <div class="bg-slate-900 border border-slate-800 w-full max-w-lg rounded-2xl shadow-2xl overflow-hidden fade-in flex flex-col max-h-[85vh]">
+            <div class="px-6 py-4 border-b border-slate-800 flex justify-between items-center shrink-0">
+                <h3 class="text-base font-bold text-white flex items-center">
+                    <i class="fa-solid fa-layer-group text-indigo-400 mr-2"></i> Sparade Skärmmallar
+                </h3>
+                <button onclick="closeModal('modal-manage-templates')" class="text-slate-400 hover:text-white transition">
+                    <i class="fa-solid fa-xmark text-lg"></i>
+                </button>
+            </div>
+            <div class="p-6 overflow-y-auto flex-1 space-y-3" id="templates-list-container">
+                <!-- Dynamically populated templates list -->
+            </div>
+            <div class="p-4 border-t border-slate-800 bg-slate-950/50 flex justify-between items-center text-xs text-slate-400 shrink-0">
+                <span>Skapa mallar via knappen "Mall" på aktiv skärm.</span>
+                <button onclick="closeModal('modal-manage-templates')" class="px-4 py-2 rounded-xl bg-slate-800 text-slate-200 font-medium">Stäng</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- MODAL: MANAGE CATEGORIES -->
+    <div id="modal-manage-categories" class="fixed inset-0 bg-slate-950/80 backdrop-blur-sm z-50 flex items-center justify-center p-4 hidden">
+        <div class="bg-slate-900 border border-slate-800 w-full max-w-lg rounded-2xl shadow-2xl overflow-hidden fade-in flex flex-col max-h-[85vh]">
+            <div class="px-6 py-4 border-b border-slate-800 flex justify-between items-center shrink-0">
+                <h3 class="text-base font-bold text-white flex items-center">
+                    <i class="fa-solid fa-folder-tree text-indigo-400 mr-2"></i> Hantera Kategorier
+                </h3>
+                <button onclick="closeModal('modal-manage-categories')" class="text-slate-400 hover:text-white transition">
+                    <i class="fa-solid fa-xmark text-lg"></i>
+                </button>
+            </div>
+            
+            <div class="p-6 border-b border-slate-800 bg-slate-950/40">
+                <form onsubmit="handleCreateCategory(event)" class="flex gap-2">
+                    <input type="text" id="category-input-new" required placeholder="Skriv namn på ny kategori..." class="flex-1 bg-slate-950 border border-slate-800 rounded-xl px-3.5 py-2 text-sm text-white focus:outline-none focus:border-indigo-500">
+                    <button type="submit" class="bg-indigo-600 hover:bg-indigo-500 text-white font-medium text-xs px-4 py-2 rounded-xl transition shadow-lg shadow-indigo-600/20 whitespace-nowrap flex items-center">
+                        <i class="fa-solid fa-plus mr-1.5"></i> Skapa
+                    </button>
+                </form>
+            </div>
+
+            <div class="p-6 overflow-y-auto flex-1 space-y-3" id="categories-list-container">
+                <!-- Dynamically populated categories list -->
+            </div>
+
+            <div class="p-4 border-t border-slate-800 bg-slate-950/50 flex justify-between items-center text-xs text-slate-400 shrink-0">
+                <span>Obs: Kategorier med skärmar kan inte raderas.</span>
+                <button onclick="closeModal('modal-manage-categories')" class="px-4 py-2 rounded-xl bg-slate-800 text-slate-200 font-medium">Stäng</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- MODAL: EDIT SCREEN / MOVE CATEGORY -->
+    <div id="modal-edit-screen" class="fixed inset-0 bg-slate-950/80 backdrop-blur-sm z-50 flex items-center justify-center p-4 hidden">
+        <div class="bg-slate-900 border border-slate-800 w-full max-w-md rounded-2xl shadow-2xl overflow-hidden fade-in">
+            <div class="px-6 py-4 border-b border-slate-800 flex justify-between items-center">
+                <h3 class="text-base font-bold text-white flex items-center">
+                    <i class="fa-solid fa-pen-to-square text-indigo-400 mr-2"></i> Redigera Skärm
+                </h3>
+                <button onclick="closeModal('modal-edit-screen')" class="text-slate-400 hover:text-white transition">
+                    <i class="fa-solid fa-xmark text-lg"></i>
+                </button>
+            </div>
+            <form onsubmit="handleSaveScreenDetails(event)" class="p-6 space-y-4">
+                <div>
+                    <label class="block text-xs font-semibold text-slate-300 mb-1">Skärmnamn</label>
+                    <input type="text" id="screen-edit-name" required class="w-full bg-slate-950 border border-slate-800 rounded-xl px-3.5 py-2.5 text-sm text-white focus:outline-none focus:border-indigo-500">
+                </div>
+                <div>
+                    <label class="block text-xs font-semibold text-slate-300 mb-1">Kategori</label>
+                    <select id="screen-edit-category-select" onchange="toggleCustomCategoryInputEdit(this)" class="w-full bg-slate-950 border border-slate-800 rounded-xl px-3.5 py-2.5 text-sm text-white focus:outline-none focus:border-indigo-500">
+                        <!-- Populated dynamically -->
+                    </select>
+                    <input type="text" id="screen-edit-category-custom" placeholder="Skriv ny kategori..." class="w-full bg-slate-950 border border-slate-800 rounded-xl px-3.5 py-2.5 text-sm text-white focus:outline-none focus:border-indigo-500 mt-2 hidden">
+                </div>
+                <div>
+                    <label class="block text-xs font-semibold text-slate-300 mb-1">Plats / Beskrivning</label>
+                    <input type="text" id="screen-edit-desc" class="w-full bg-slate-950 border border-slate-800 rounded-xl px-3.5 py-2.5 text-sm text-white focus:outline-none focus:border-indigo-500">
+                </div>
+                <div class="pt-4 flex justify-end space-x-3">
+                    <button type="button" onclick="closeModal('modal-edit-screen')" class="px-4 py-2.5 rounded-xl bg-slate-800 text-slate-300 text-sm font-medium">Avbryt</button>
+                    <button type="submit" class="px-5 py-2.5 rounded-xl bg-indigo-600 text-white text-sm font-medium shadow-lg shadow-indigo-600/20">Spara Ändringar</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- MODAL: EDIT ZONE PROPERTIES -->
+    <div id="modal-edit-zone" class="fixed inset-0 bg-slate-950/80 backdrop-blur-sm z-50 flex items-center justify-center p-4 hidden">
+        <div class="bg-slate-900 border border-slate-800 w-full max-w-lg rounded-2xl shadow-2xl overflow-hidden fade-in max-h-[90vh] flex flex-col">
+            <div class="px-6 py-4 border-b border-slate-800 flex justify-between items-center shrink-0">
+                <h3 id="modal-zone-title" class="text-base font-bold text-white flex items-center">
+                    <i class="fa-solid fa-pen-to-square text-indigo-400 mr-2"></i> Redigera Zon
+                </h3>
+                <button onclick="closeModal('modal-edit-zone')" class="text-slate-400 hover:text-white transition">
+                    <i class="fa-solid fa-xmark text-lg"></i>
+                </button>
+            </div>
+            
+            <form onsubmit="handleSaveZone(event)" class="p-6 space-y-4 overflow-y-auto flex-1">
+                <input type="hidden" id="zone-edit-index">
+
+                <div>
+                    <label class="block text-xs font-semibold text-slate-300 mb-1">Zonens Titel</label>
+                    <input type="text" id="zone-input-title" required placeholder="Ex: Huvudnyheter, Matsedels-widget" class="w-full bg-slate-950 border border-slate-800 rounded-xl px-3.5 py-2.5 text-sm text-white focus:outline-none focus:border-indigo-500">
+                </div>
+
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
+                    <div>
+                        <label class="block text-xs font-semibold text-slate-300 mb-1">Zoomning (% Scale)</label>
+                        <select id="zone-input-zoom" class="w-full bg-slate-950 border border-slate-800 rounded-xl px-2.5 py-2.5 text-xs text-white focus:outline-none focus:border-indigo-500">
+                            <option value="50">50% (Utzoomad)</option>
+                            <option value="75">75% (Förminskad)</option>
+                            <option value="100" selected>100% (Normal)</option>
+                            <option value="125">125% (Förstorad)</option>
+                            <option value="150">150% (Stor text)</option>
+                            <option value="200">200% (Dubbel)</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label class="block text-xs font-semibold text-slate-300 mb-1 flex items-center justify-between">
+                            <span>Auto-uppdatera</span>
+                            <i class="fa-solid fa-rotate-right text-[10px] text-indigo-400"></i>
+                        </label>
+                        <select id="zone-input-refresh" class="w-full bg-slate-950 border border-slate-800 rounded-xl px-2.5 py-2.5 text-xs text-white focus:outline-none focus:border-indigo-500">
+                            <option value="0">Aldrig (Av)</option>
+                            <option value="1">Var 1 min</option>
+                            <option value="5">Var 5 min</option>
+                            <option value="15" selected>Var 15 min</option>
+                            <option value="30">Var 30 min</option>
+                            <option value="60">Varje timme</option>
+                        </select>
+                    </div>
+                </div>
+
+                <div>
+                    <label class="block text-xs font-semibold text-slate-300 mb-1">Publicerad URL / Webbadress</label>
+                    <input type="url" id="zone-input-url" required placeholder="https://docs.google.com/presentation/..." class="w-full bg-slate-950 border border-slate-800 rounded-xl px-3.5 py-2.5 text-sm text-white focus:outline-none focus:border-indigo-500 font-mono text-xs">
+                </div>
+
+                <div class="bg-indigo-950/40 border border-indigo-800/50 rounded-xl p-3.5 space-y-2">
+                    <div class="flex items-center space-x-2">
+                        <input type="checkbox" id="zone-input-proxy" class="w-4 h-4 rounded border-slate-800 bg-slate-950 text-indigo-600 focus:ring-indigo-500 cursor-pointer">
+                        <label for="zone-input-proxy" class="text-xs text-indigo-200 font-semibold cursor-pointer flex items-center">
+                            <i class="fa-solid fa-shield-halved text-indigo-400 mr-1.5"></i> Använd Web-Proxy (Kringgå "avvisade anslutningen" / X-Frame-Options)
+                        </label>
+                    </div>
+                    <p class="text-[11px] text-slate-300 leading-relaxed pl-6">
+                        Aktivera detta om webbplatsen (t.ex. dn.se eller arvika.se) blockerar direkt inbäddning. För <strong>Google Presentationer</strong> omvandlar appen automatiskt redigeringslänkar till giltiga inbäddningslänkar (<code class="text-indigo-300">/embed</code>).
+                    </p>
+                </div>
+
+                <!-- Custom Size & Position Controls (Percent) -->
+                <div class="border-t border-slate-800 pt-4 space-y-3">
+                    <span class="text-xs font-bold text-indigo-400 uppercase tracking-wider block">Procentuell Storlek & Position (16:9 Canvas)</span>
+                    
+                    <div class="grid grid-cols-2 gap-3">
+                        <div>
+                            <label class="block text-[11px] font-semibold text-slate-400 mb-1">Bredd (%)</label>
+                            <input type="number" id="zone-input-width" min="10" max="100" step="1" required class="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-sm text-white focus:outline-none focus:border-indigo-500">
+                        </div>
+                        <div>
+                            <label class="block text-[11px] font-semibold text-slate-400 mb-1">Höjd (%)</label>
+                            <input type="number" id="zone-input-height" min="10" max="100" step="1" required class="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-sm text-white focus:outline-none focus:border-indigo-500">
+                        </div>
+                    </div>
+
+                    <div class="grid grid-cols-2 gap-3">
+                        <div>
+                            <label class="block text-[11px] font-semibold text-slate-400 mb-1">Position X / Vänster (%)</label>
+                            <input type="number" id="zone-input-x" min="0" max="90" step="1" required class="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-sm text-white focus:outline-none focus:border-indigo-500">
+                        </div>
+                        <div>
+                            <label class="block text-[11px] font-semibold text-slate-400 mb-1">Position Y / Topp (%)</label>
+                            <input type="number" id="zone-input-y" min="0" max="90" step="1" required class="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-sm text-white focus:outline-none focus:border-indigo-500">
+                        </div>
+                    </div>
+                </div>
+
+                <div class="pt-4 flex justify-end space-x-3 border-t border-slate-800 shrink-0">
+                    <button type="button" onclick="closeModal('modal-edit-zone')" class="px-4 py-2.5 rounded-xl bg-slate-800 text-slate-300 text-sm font-medium">Avbryt</button>
+                    <button type="submit" class="px-5 py-2.5 rounded-xl bg-indigo-600 text-white text-sm font-medium shadow-lg shadow-indigo-600/20">Spara Zon</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- MODAL: CONFIRMATION DIALOG (Replaces native confirm/alert) -->
+    <div id="modal-confirm" class="fixed inset-0 bg-slate-950/80 backdrop-blur-sm z-50 flex items-center justify-center p-4 hidden">
+        <div class="bg-slate-900 border border-slate-800 w-full max-w-sm rounded-2xl shadow-2xl p-6 space-y-4 fade-in">
+            <div class="flex items-center space-x-3">
+                <div class="bg-amber-500/20 text-amber-400 p-2.5 rounded-xl border border-amber-500/30">
+                    <i class="fa-solid fa-triangle-exclamation text-lg"></i>
+                </div>
+                <h3 id="modal-confirm-title" class="text-base font-bold text-white">Bekräfta</h3>
+            </div>
+            <p id="modal-confirm-msg" class="text-xs text-slate-300 leading-relaxed"></p>
+            <div class="pt-2 flex justify-end space-x-3">
+                <button type="button" onclick="closeModal('modal-confirm')" class="px-4 py-2 rounded-xl bg-slate-800 text-slate-300 text-xs font-medium">Avbryt</button>
+                <button type="button" id="modal-confirm-btn-action" class="px-4 py-2 rounded-xl bg-rose-600 text-white text-xs font-medium shadow-lg shadow-rose-600/20">Fortsätt</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Zone colors for visual visualizer
+        const ZONE_COLORS = [
+            { bg: 'bg-indigo-600/20', border: 'border-indigo-500', text: 'text-indigo-300' },
+            { bg: 'bg-emerald-600/20', border: 'border-emerald-500', text: 'text-emerald-300' },
+            { bg: 'bg-amber-600/20', border: 'border-amber-500', text: 'text-amber-300' },
+            { bg: 'bg-sky-600/20', border: 'border-sky-500', text: 'text-sky-300' }
+        ];
+
+        // Helper to resolve X-Frame-Options blocking & auto-correct Google Presentation URLs
+        function fixAndFormatUrl(url, useProxy = false) {
+            if (!url) return '';
+            let cleanUrl = url.trim();
+
+            // Auto-correct standard Google Slides edit/view links to embed format
+            if (cleanUrl.includes('docs.google.com/presentation')) {
+                if (cleanUrl.includes('/d/') && !cleanUrl.includes('/d/e/')) {
+                    cleanUrl = cleanUrl.replace(/\/presentation\/d\/([^\/]+).*/, 'https://docs.google.com/presentation/d/$1/embed?start=true&loop=true&delayms=5000');
+                } else if (cleanUrl.includes('/pub')) {
+                    cleanUrl = cleanUrl.replace('/pub', '/embed');
+                    if (!cleanUrl.includes('start=true')) {
+                        cleanUrl += (cleanUrl.includes('?') ? '&' : '?') + 'start=true&loop=true&delayms=5000';
+                    }
+                }
+                return cleanUrl;
+            }
+
+            // If website sets X-Frame-Options / CSP frame-ancestors, pass through CORS proxy
+            if (useProxy) {
+                return `https://api.allorigins.win/raw?url=${encodeURIComponent(cleanUrl)}`;
+            }
+
+            return cleanUrl;
+        }
+
+        // Layout presets per zone count
+        const ZONE_PRESETS = {
+            1: [
+                { name: 'Helskärm (100%)', key: 'full', layout: [{ width: 100, height: 100, x: 0, y: 0 }] }
+            ],
+            2: [
+                { name: '50 / 50 Lodrät', key: 'v_50_50', layout: [{ width: 50, height: 100, x: 0, y: 0 }, { width: 50, height: 100, x: 50, y: 0 }] },
+                { name: '75 / 25 Sidopanel', key: 'v_75_25', layout: [{ width: 75, height: 100, x: 0, y: 0 }, { width: 25, height: 100, x: 75, y: 0 }] },
+                { name: '50 / 50 Vågrät', key: 'h_50_50', layout: [{ width: 100, height: 50, x: 0, y: 0 }, { width: 100, height: 50, x: 0, y: 50 }] }
+            ],
+            3: [
+                { name: '1 Större + 2 Sidor', key: 'main_2side', layout: [{ width: 70, height: 100, x: 0, y: 0 }, { width: 30, height: 50, x: 70, y: 0 }, { width: 30, height: 50, x: 70, y: 50 }] },
+                { name: '3 Lika Spalter', key: 'col_3', layout: [{ width: 33.33, height: 100, x: 0, y: 0 }, { width: 33.33, height: 100, x: 33.33, y: 0 }, { width: 33.34, height: 100, x: 66.66, y: 0 }] },
+                { name: '1 Topp + 2 Botten', key: 'top_2bot', layout: [{ width: 100, height: 60, x: 0, y: 0 }, { width: 50, height: 40, x: 0, y: 60 }, { width: 50, height: 40, x: 50, y: 60 }] }
+            ],
+            4: [
+                { name: '2x2 Quadrant (25% var)', key: 'grid_2x2', layout: [{ width: 50, height: 50, x: 0, y: 0 }, { width: 50, height: 50, x: 50, y: 0 }, { width: 50, height: 50, x: 0, y: 50 }, { width: 50, height: 50, x: 50, y: 50 }] },
+                { name: '1 Huvud + 3 Nederst', key: 'top_3bot', layout: [{ width: 100, height: 70, x: 0, y: 0 }, { width: 33.33, height: 30, x: 0, y: 70 }, { width: 33.33, height: 30, x: 33.33, y: 70 }, { width: 33.34, height: 30, x: 66.66, y: 70 }] }
+            ]
+        };
+
+        const DEFAULT_TEMPLATES = [
+            {
+                id: 'tpl_standard_2x2',
+                name: 'Standard 2x2 Quadrant (4 Zoner)',
+                desc: 'Fyra lika stora zoner för nyheter, meny och kalendrar',
+                zoneCount: 4,
+                zones: [
+                    { title: 'Nyheter / Slides', url: 'https://docs.google.com/presentation/d/e/2PACX-1vR8d32s9yWq1V_Demo/embed?start=true&loop=true&delayms=5000', useProxy: false, width: 50, height: 50, x: 0, y: 0, zoom: 100, refreshInterval: 15 },
+                    { title: 'Arvika Kommun', url: 'https://www.arvika.se', useProxy: true, width: 50, height: 50, x: 50, y: 0, zoom: 100, refreshInterval: 30 },
+                    { title: 'Nyhetssajt (DN)', url: 'https://www.dn.se', useProxy: true, width: 50, height: 50, x: 0, y: 50, zoom: 90, refreshInterval: 5 },
+                    { title: 'Skolnyheter', url: 'https://docs.google.com/presentation/d/e/2PACX-1vR8d32s9yWq1V_Demo/embed?start=true&loop=true&delayms=5000', useProxy: false, width: 50, height: 50, x: 50, y: 50, zoom: 100, refreshInterval: 60 }
+                ]
+            }
+        ];
+
+        const DEFAULT_SCREENS = [
+            {
+                id: 'screen_entre',
+                name: 'Huvudentré',
+                category: 'Gymnasieskolor',
+                desc: 'Byggnad A - Entréhall',
+                zoneCount: 4,
+                zones: [
+                    { title: 'Välkommen & Informationsbilder', url: 'https://docs.google.com/presentation/d/e/2PACX-1vR8d32s9yWq1V_Demo/embed?start=true&loop=true&delayms=5000', useProxy: false, width: 50, height: 50, x: 0, y: 0, zoom: 100, refreshInterval: 15 },
+                    { title: 'Arvika Portal', url: 'https://www.arvika.se', useProxy: true, width: 50, height: 50, x: 50, y: 0, zoom: 100, refreshInterval: 30 },
+                    { title: 'Aktuella Nyheter', url: 'https://www.dn.se', useProxy: true, width: 50, height: 50, x: 0, y: 50, zoom: 90, refreshInterval: 5 },
+                    { title: 'Skolinformation', url: 'https://docs.google.com/presentation/d/e/2PACX-1vR8d32s9yWq1V_Demo/embed?start=true&loop=true&delayms=5000', useProxy: false, width: 50, height: 50, x: 50, y: 50, zoom: 100, refreshInterval: 60 }
+                ]
+            },
+            {
+                id: 'screen_matsal',
+                name: 'Matsal & Café',
+                category: 'Restaurang & Skolmat',
+                desc: 'Restaurang & Skolcafé',
+                zoneCount: 2,
+                zones: [
+                    { title: 'Veckans Lunchmeny', url: 'https://www.arvika.se', useProxy: true, width: 75, height: 100, x: 0, y: 0, zoom: 125, refreshInterval: 15 },
+                    { title: 'Trivselregler & Info', url: 'https://docs.google.com/presentation/d/e/2PACX-1vR8d32s9yWq1V_Demo/embed?start=true&loop=true&delayms=5000', useProxy: false, width: 25, height: 100, x: 75, y: 0, zoom: 100, refreshInterval: 0 }
+                ]
+            }
+        ];
+
+        let screens = [];
+        let templates = [];
+        let customCategories = [];
+        let activeScreenId = 'screen_entre';
+        let playerIntervals = [];
+        let deferredPWAInstallPrompt = null;
+        let currentEmbedType = 'admin';
+        let wakeLock = null;
+
+        // Server API Endpoint (Relativ sökväg till api.php, eller Google Apps Script URL)
+        // Byt ut URL:en nedan mot din Apps Script "Web App" URL.
+        const SERVER_API_URL = 'https://script.google.com/macros/s/AKfycbzBGTP1GhBdTM6j-1Mr8Gd7_G5HTZyuQxdxKtt5Rlggdx8t_6WKozyU2il9CpO-9R4t/exec';
+
+        // Hjälpfunktion: Kontrollera om vi körs i förhandsgranskningsläge/sandbox
+        function isPreviewEnv() {
+            return window.location.protocol === 'blob:' || window.location.protocol === 'data:' || window.location.origin === 'null';
+        }
+
+        async function requestWakeLock() {
+            if ('wakeLock' in navigator) {
+                try {
+                    wakeLock = await navigator.wakeLock.request('screen');
+                    console.log('Skärmen hålls vaken (Wake Lock aktiv).');
+                } catch (err) {
+                    console.warn('Wake Lock misslyckades:', err.name, err.message);
+                }
+            }
+        }
+
+        function releaseWakeLock() {
+            if (wakeLock !== null) {
+                wakeLock.release().then(() => {
+                    wakeLock = null;
+                    console.log('Wake Lock släppt.');
+                });
+            }
+        }
+
+        // Återaktivera Wake Lock om fönstret minimerats och sedan öppnats igen
+        document.addEventListener('visibilitychange', () => {
+            if (wakeLock !== null && document.visibilityState === 'visible') {
+                requestWakeLock();
+            }
+        });
+
+        function getActiveScreen() {
+            return screens.find(s => s.id === activeScreenId) || screens[0];
+        }
+
+        function switchMode(mode) {
+            const adminView = document.getElementById('view-admin');
+            const playerView = document.getElementById('view-player');
+            const header = document.getElementById('app-header');
+
+            if (mode === 'player') {
+                if (adminView) adminView.classList.add('hidden');
+                if (playerView) playerView.classList.remove('hidden');
+                if (header) header.classList.add('hidden');
+                setupPlayerView();
+                requestWakeLock();
+            } else {
+                if (playerView) playerView.classList.add('hidden');
+                if (adminView) adminView.classList.remove('hidden');
+                if (header) header.classList.remove('hidden');
+                clearPlayerIntervals();
+                renderAdminDashboard();
+                releaseWakeLock();
+            }
+        }
+
+        function openModal(modalId) {
+            const modal = document.getElementById(modalId);
+            if (modal) modal.classList.remove('hidden');
+        }
+
+        function closeModal(modalId) {
+            const modal = document.getElementById(modalId);
+            if (modal) modal.classList.add('hidden');
+        }
+
+        function showToast(msg) {
+            let toast = document.getElementById('toast-notification');
+            if (!toast) {
+                toast = document.createElement('div');
+                toast.id = 'toast-notification';
+                toast.className = 'fixed bottom-5 right-5 bg-indigo-600 text-white text-xs font-semibold px-4 py-3 rounded-xl shadow-2xl z-50 transition-all duration-300 transform translate-y-10 opacity-0 flex items-center space-x-2';
+                document.body.appendChild(toast);
+            }
+            toast.innerHTML = `<i class="fa-solid fa-circle-check"></i> <span>${escapeHtml(msg)}</span>`;
+            toast.classList.remove('translate-y-10', 'opacity-0');
+            toast.classList.add('translate-y-0', 'opacity-100');
+
+            setTimeout(() => {
+                toast.classList.remove('translate-y-0', 'opacity-100');
+                toast.classList.add('translate-y-10', 'opacity-0');
+            }, 3000);
+        }
+
+        function showConfirm(title, msg, onConfirm) {
+            const titleEl = document.getElementById('modal-confirm-title');
+            const msgEl = document.getElementById('modal-confirm-msg');
+            const actionBtn = document.getElementById('modal-confirm-btn-action');
+
+            if (titleEl) titleEl.innerText = title;
+            if (msgEl) msgEl.innerText = msg;
+
+            if (actionBtn) {
+                actionBtn.onclick = () => {
+                    closeModal('modal-confirm');
+                    if (typeof onConfirm === 'function') onConfirm();
+                };
+            }
+            openModal('modal-confirm');
+        }
+
+        function installPWA() {
+            if (deferredPWAInstallPrompt) {
+                deferredPWAInstallPrompt.prompt();
+                deferredPWAInstallPrompt.userChoice.then((choiceResult) => {
+                    if (choiceResult.outcome === 'accepted') {
+                        const btn = document.getElementById('btn-pwa-install');
+                        if (btn) btn.classList.add('hidden');
+                    }
+                    deferredPWAInstallPrompt = null;
+                });
+            }
+        }
+
+        function escapeHtml(str) {
+            if (!str) return '';
+            return String(str)
+                .replace(/&/g, "&amp;")
+                .replace(/</g, "&lt;")
+                .replace(/>/g, "&gt;")
+                .replace(/"/g, "&quot;")
+                .replace(/'/g, "&#039;");
+        }
+
+        function setupPWA() {
+            // Generate PWA manifest targeting Admin view
+            const manifestData = {
+                name: "Arvika Signage Manager (Admin & Kiosk)",
+                short_name: "ArvikaSignage",
+                start_url: "./?mode=admin",
+                display: "standalone",
+                background_color: "#020617",
+                theme_color: "#4338ca",
+                description: "Digital Signage Manager PWA för Arvika Education",
+                icons: [
+                    {
+                        src: "data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 512 512' fill='%234338ca'><rect width='512' height='512' rx='100' fill='%231e1b4b'/><path fill='%23ffffff' d='M64 96h384v256H64z'/></svg>",
+                        sizes: "512x512",
+                        type: "image/svg+xml"
+                    }
+                ]
+            };
+            try {
+                const manifestBlob = new Blob([JSON.stringify(manifestData)], { type: 'application/json' });
+                const manifestUrl = URL.createObjectURL(manifestBlob);
+                document.getElementById('pwa-manifest-link').setAttribute('href', manifestUrl);
+            } catch(e) {
+                console.warn('PWA Manifest registration failed:', e);
+            }
+
+            window.addEventListener('beforeinstallprompt', (e) => {
+                e.preventDefault();
+                deferredPWAInstallPrompt = e;
+                const btn = document.getElementById('btn-pwa-install');
+                if (btn) btn.classList.remove('hidden');
+            });
+        }
+
+        // Läser in alla skärmar från HTTPS-serverns mappar (data/[Kategori]/[Skärmnamn].json)
+        async function loadScreensAndTemplates() {
+            try {
+                if (isPreviewEnv()) {
+                    throw new Error("Körs i förhandsgranskning (blob/data). Hoppar över serveranrop.");
+                }
+                const response = await fetch(`${SERVER_API_URL}?action=list`);
+                if (response.ok) {
+                    const serverData = await response.json();
+                    
+                    // Skärmar
+                    if (serverData.screens && serverData.screens.length > 0) {
+                        screens = serverData.screens;
+                        customCategories = Array.from(new Set(screens.map(s => s.category || 'Allmänna Skärmar')));
+                        console.log('Skärmar inlästa från servern:', screens);
+                    } else {
+                        screens = JSON.parse(JSON.stringify(DEFAULT_SCREENS));
+                    }
+
+                    // Mallar
+                    if (serverData.templates && serverData.templates.length > 0) {
+                        templates = serverData.templates;
+                        console.log('Mallar inlästa från servern:', templates);
+                    } else {
+                        templates = JSON.parse(JSON.stringify(DEFAULT_TEMPLATES));
+                    }
+
+                } else {
+                    console.warn('Fel vid serveranrop. Laddar tomt standardgränssnitt.');
+                    screens = JSON.parse(JSON.stringify(DEFAULT_SCREENS));
+                    templates = JSON.parse(JSON.stringify(DEFAULT_TEMPLATES));
+                }
+
+            } catch (err) {
+                console.log('Använder lokala standarddata. (Server-API ej nåbart eller körs i förhandsgranskning).');
+                screens = JSON.parse(JSON.stringify(DEFAULT_SCREENS));
+                templates = JSON.parse(JSON.stringify(DEFAULT_TEMPLATES));
+                customCategories = ['Gymnasieskolor', 'Restaurang & Skolmat', 'Grundskolor', 'Allmänna Skärmar'];
+            }
+
+            screens.forEach(s => { if (!s.category) s.category = 'Allmänna Skärmar'; });
+            if (!screens.find(s => s.id === activeScreenId) && screens.length > 0) {
+                activeScreenId = screens[0].id;
+            }
+            renderAdminDashboard();
+        }
+
+        // Sparar en enskild skärm till servern i mappen data/[Kategori]/[Skärmnamn].json
+        async function saveScreen(screen, oldCategory = null, oldName = null) {
+            try {
+                if (isPreviewEnv()) {
+                    console.log(`(Förhandsgranskning) Skärmen "${screen.name}" simulerades sparad.`);
+                    renderAdminDashboard();
+                    return;
+                }
+                const res = await fetch(`${SERVER_API_URL}?action=save`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        screen: screen,
+                        oldCategory: oldCategory || screen.category,
+                        oldName: oldName || screen.name
+                    })
+                });
+                if (res.ok) {
+                    console.log(`Skärmen "${screen.name}" sparades på servern under mappen "${screen.category}"`);
+                }
+            } catch (err) {
+                console.warn('Kunde inte spara till servern:', err);
+                showToast('Skärm sparades enbart tillfälligt (Server-API ej nåbart).');
+            }
+            renderAdminDashboard();
+        }
+
+        // Tar bort en skärm från servern
+        async function deleteScreen(screen) {
+            try {
+                if (!isPreviewEnv()) {
+                    await fetch(`${SERVER_API_URL}?action=delete`, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ category: screen.category, name: screen.name })
+                    });
+                }
+                screens = screens.filter(s => s.id !== screen.id);
+                if (screens.length > 0) {
+                    activeScreenId = screens[0].id;
+                } else {
+                    activeScreenId = null;
+                }
+                renderAdminDashboard();
+            } catch (err) {
+                console.warn('Kunde inte radera skärmen från servern:', err);
+                showToast('Kunde endast radera lokalt.');
+            }
+        }
+
+        // Spara en mall till servern i mappen data/mallar/[Mallnamn].json
+        async function saveTemplateToServer(template) {
+            try {
+                if (isPreviewEnv()) return;
+                await fetch(`${SERVER_API_URL}?action=saveTemplate`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(template)
+                });
+            } catch (err) {
+                console.warn('Kunde inte spara mall till servern:', err);
+                showToast('Mallen sparades enbart tillfälligt.');
+            }
+        }
+
+        // Raderar en mall från serverns mall-mapp
+        async function deleteTemplateFromServer(templateName) {
+            try {
+                if (isPreviewEnv()) return;
+                await fetch(`${SERVER_API_URL}?action=deleteTemplate`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ name: templateName })
+                });
+            } catch (err) {
+                console.warn('Kunde inte radera mall från servern:', err);
+            }
+        }
+
+        function saveScreens() {
+            const current = getActiveScreen();
+            if (current) saveScreen(current);
+        }
+
+        function saveTemplates() {
+            // Mallar lagras numera enbart på servern. Denna är avsiktligt tom.
+        }
+
+        function saveCategories() {
+            // Kategorier lagras numera enbart på servern i form av mappar. Denna är avsiktligt tom.
+        }
+
+        function copyEmbedCode() {
+            const textarea = document.getElementById('embed-code-textarea');
+            if (textarea) {
+                textarea.select();
+                document.execCommand('copy');
+                showToast('Inbäddningskod kopierad!');
+            }
+        }
+
+        function getAllCategories() {
+            const catsFromScreens = screens.map(s => s.category || 'Allmänna Skärmar');
+            const merged = Array.from(new Set([...customCategories, ...catsFromScreens]));
+            return merged.sort((a, b) => a.localeCompare(b, 'sv'));
+        }
+
+        function renderAdminDashboard() {
+            const current = getActiveScreen();
+            if (!current) return;
+
+            document.getElementById('active-screen-name').innerText = current.name;
+            document.getElementById('active-screen-desc').innerText = current.desc;
+            document.getElementById('active-screen-category-text').innerText = current.category || 'Allmänna Skärmar';
+            document.getElementById('active-screen-zone-badge').innerText = `${current.zoneCount} ${current.zoneCount === 1 ? 'Zon' : 'Zoner'}`;
+
+            for (let i = 1; i <= 4; i++) {
+                const btn = document.getElementById(`btn-zone-count-${i}`);
+                if (btn) {
+                    btn.className = (i === current.zoneCount)
+                        ? 'px-3 py-1.5 rounded-lg text-xs font-semibold bg-indigo-600 text-white shadow-sm'
+                        : 'px-3 py-1.5 rounded-lg text-xs font-medium text-slate-400 hover:text-white transition';
+                }
+            }
+
+            const baseUrl = window.location.href.split('?')[0];
+            document.getElementById('kiosk-url-display').value = `${baseUrl}?mode=player&screen=${current.id}`;
+
+            renderScreenTabs();
+            renderZonePresets(current);
+            renderVisualizerCanvas(current);
+            renderZonesConfigList(current);
+            populateCategoryDropdown();
+            populateTemplateDropdown();
+            renderTemplatesModalList();
+            renderCategoriesModalList();
+        }
+
+        function renderScreenTabs() {
+            const container = document.getElementById('screen-tabs-container');
+            if (!container) return;
+            container.innerHTML = '';
+
+            const allCats = getAllCategories();
+            const categoriesWrapper = document.createElement('div');
+            categoriesWrapper.className = 'flex flex-wrap items-center gap-6';
+
+            allCats.forEach(catName => {
+                const categoryScreens = screens.filter(s => (s.category || 'Allmänna Skärmar') === catName);
+                if (categoryScreens.length === 0) return;
+
+                const groupDiv = document.createElement('div');
+                groupDiv.className = 'flex items-center space-x-2 bg-slate-950/60 p-1.5 rounded-2xl border border-slate-800/80';
+
+                const catBadge = document.createElement('span');
+                catBadge.className = 'text-[10px] uppercase font-bold text-slate-400 tracking-wider px-2 py-1 flex items-center gap-1 shrink-0';
+                catBadge.innerHTML = `<i class="fa-solid fa-folder text-indigo-400"></i> ${escapeHtml(catName)}`;
+                groupDiv.appendChild(catBadge);
+
+                categoryScreens.sort((a, b) => a.name.localeCompare(b.name, 'sv'));
+
+                categoryScreens.forEach(s => {
+                    const isActive = s.id === activeScreenId;
+                    const btn = document.createElement('button');
+                    btn.onclick = () => {
+                        activeScreenId = s.id;
+                        renderAdminDashboard();
+                    };
+                    btn.className = isActive
+                        ? 'bg-indigo-600 text-white font-semibold text-xs px-3.5 py-1.5 rounded-xl transition shadow-md shadow-indigo-600/20 whitespace-nowrap flex items-center space-x-1.5'
+                        : 'bg-slate-800/80 hover:bg-slate-800 text-slate-300 font-medium text-xs px-3.5 py-1.5 rounded-xl transition whitespace-nowrap flex items-center space-x-1.5';
+                    btn.innerHTML = `<i class="fa-solid fa-tv text-[11px]"></i> <span>${escapeHtml(s.name)}</span>`;
+                    groupDiv.appendChild(btn);
+                });
+
+                categoriesWrapper.appendChild(groupDiv);
+            });
+
+            container.appendChild(categoriesWrapper);
+        }
+
+        function renderVisualizerCanvas(current) {
+            const canvas = document.getElementById('screen-visualizer-canvas');
+            if (!canvas) return;
+            canvas.innerHTML = '';
+
+            current.zones.forEach((z, index) => {
+                const theme = ZONE_COLORS[index % ZONE_COLORS.length];
+                const box = document.createElement('div');
+                box.className = `absolute border-2 ${theme.border} ${theme.bg} ${theme.text} p-3 rounded-lg flex flex-col justify-between overflow-hidden transition-all shadow-md`;
+                box.style.left = `${z.x}%`;
+                box.style.top = `${z.y}%`;
+                box.style.width = `${z.width}%`;
+                box.style.height = `${z.height}%`;
+
+                box.innerHTML = `
+                    <div class="flex items-center justify-between gap-1">
+                        <span class="font-bold text-xs truncate">${escapeHtml(z.title)}</span>
+                        <span class="text-[10px] font-mono px-1.5 py-0.5 rounded bg-slate-900/80 border border-slate-700/50 shrink-0">Zon ${index + 1}</span>
+                    </div>
+                    <div class="text-[10px] space-y-0.5 opacity-90 font-mono">
+                        <div>Mått: ${z.width}% x ${z.height}%</div>
+                        <div>Position: X:${z.x}% Y:${z.y}% | Zoom: ${z.zoom || 100}%</div>
+                    </div>
+                `;
+                canvas.appendChild(box);
+            });
+        }
+
+        function renderZonesConfigList(current) {
+            const container = document.getElementById('zones-config-list');
+            if (!container) return;
+            container.innerHTML = '';
+
+            current.zones.forEach((z, index) => {
+                const theme = ZONE_COLORS[index % ZONE_COLORS.length];
+                const card = document.createElement('div');
+                card.className = 'bg-slate-900 border border-slate-800 rounded-2xl p-5 space-y-3 relative shadow-md';
+
+                card.innerHTML = `
+                    <div class="flex items-center justify-between">
+                        <div class="flex items-center space-x-2">
+                            <span class="w-3 h-3 rounded-full ${theme.border} bg-indigo-500"></span>
+                            <h4 class="font-bold text-sm text-white">${escapeHtml(z.title)}</h4>
+                        </div>
+                        <button onclick="editZone(${index})" class="text-xs bg-slate-800 hover:bg-slate-700 text-indigo-300 border border-slate-700 px-3 py-1.5 rounded-xl transition flex items-center">
+                            <i class="fa-solid fa-pen-to-square mr-1.5"></i> Ändra
+                        </button>
+                    </div>
+                    
+                    <div class="text-xs space-y-1 text-slate-400 border-t border-slate-800/80 pt-3">
+                        <p class="truncate font-mono text-[11px] text-slate-300"><i class="fa-solid fa-link text-indigo-400 mr-1.5"></i>${escapeHtml(z.url)}</p>
+                        <div class="grid grid-cols-2 gap-2 text-[11px] pt-1">
+                            <span class="bg-slate-950 px-2 py-1 rounded-lg border border-slate-800/60">Mått: <strong>${z.width}% x ${z.height}%</strong></span>
+                            <span class="bg-slate-950 px-2 py-1 rounded-lg border border-slate-800/60">Pos: <strong>X:${z.x}% Y:${z.y}%</strong></span>
+                            <span class="bg-slate-950 px-2 py-1 rounded-lg border border-slate-800/60">Proxy: <strong>${z.useProxy ? 'Aktiv' : 'Av'}</strong></span>
+                            <span class="bg-slate-950 px-2 py-1 rounded-lg border border-slate-800/60">Uppdatera: <strong>${z.refreshInterval > 0 ? z.refreshInterval + ' min' : 'Av'}</strong></span>
+                        </div>
+                    </div>
+                `;
+                container.appendChild(card);
+            });
+        }
+
+        function setZoneCount(count) {
+            const current = getActiveScreen();
+            if (!current) return;
+            current.zoneCount = count;
+
+            while (current.zones.length < count) {
+                const idx = current.zones.length;
+                current.zones.push({
+                    title: `Zon ${idx + 1}`,
+                    type: 'slides',
+                    url: 'https://docs.google.com/presentation/',
+                    width: 50,
+                    height: 50,
+                    x: 0,
+                    y: 0,
+                    zoom: 100,
+                    refreshInterval: 15
+                });
+            }
+            if (current.zones.length > count) {
+                current.zones = current.zones.slice(0, count);
+            }
+
+            const presets = ZONE_PRESETS[count];
+            if (presets && presets[0]) {
+                applyZonePreset(presets[0].key);
+            } else {
+                saveScreens();
+            }
+        }
+
+        function renderZonePresets(current) {
+            const container = document.getElementById('presets-container');
+            if (!container) return;
+            container.innerHTML = '';
+
+            const list = ZONE_PRESETS[current.zoneCount] || [];
+            list.forEach(p => {
+                const btn = document.createElement('button');
+                btn.onclick = () => applyZonePreset(p.key);
+                btn.className = 'text-[11px] bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white px-2.5 py-1 rounded-lg border border-slate-700 transition';
+                btn.innerText = p.name;
+                container.appendChild(btn);
+            });
+        }
+
+        function applyZonePreset(key) {
+            const current = getActiveScreen();
+            if (!current) return;
+            const list = ZONE_PRESETS[current.zoneCount] || [];
+            const preset = list.find(p => p.key === key);
+            if (!preset) return;
+
+            preset.layout.forEach((item, i) => {
+                if (current.zones[i]) {
+                    current.zones[i].width = item.width;
+                    current.zones[i].height = item.height;
+                    current.zones[i].x = item.x;
+                    current.zones[i].y = item.y;
+                }
+            });
+            saveScreens();
+        }
+
+        function editZone(index) {
+            const current = getActiveScreen();
+            if (!current || !current.zones[index]) return;
+            const z = current.zones[index];
+
+            document.getElementById('zone-edit-index').value = index;
+            document.getElementById('zone-input-title').value = z.title;
+            document.getElementById('zone-input-zoom').value = z.zoom || 100;
+            document.getElementById('zone-input-refresh').value = z.refreshInterval !== undefined ? z.refreshInterval : 15;
+            document.getElementById('zone-input-url').value = z.url;
+            document.getElementById('zone-input-proxy').checked = !!z.useProxy;
+            document.getElementById('zone-input-width').value = z.width;
+            document.getElementById('zone-input-height').value = z.height;
+            document.getElementById('zone-input-x').value = z.x;
+            document.getElementById('zone-input-y').value = z.y;
+
+            document.getElementById('modal-zone-title').innerHTML = `<i class="fa-solid fa-pen-to-square text-indigo-400 mr-2"></i> Redigera Zon ${index + 1}`;
+            openModal('modal-edit-zone');
+        }
+
+        function handleSaveZone(e) {
+            e.preventDefault();
+            const current = getActiveScreen();
+            const index = parseInt(document.getElementById('zone-edit-index').value, 10);
+            if (!current || current.zones[index] === undefined) return;
+
+            let rawUrl = document.getElementById('zone-input-url').value.trim();
+            const useProxy = document.getElementById('zone-input-proxy').checked;
+
+            // Auto-correct Google presentation URL formats
+            rawUrl = fixAndFormatUrl(rawUrl, false);
+
+            current.zones[index] = {
+                title: document.getElementById('zone-input-title').value.trim(),
+                zoom: parseInt(document.getElementById('zone-input-zoom').value, 10) || 100,
+                refreshInterval: parseInt(document.getElementById('zone-input-refresh').value, 10) || 0,
+                url: rawUrl,
+                useProxy: useProxy,
+                width: parseFloat(document.getElementById('zone-input-width').value) || 50,
+                height: parseFloat(document.getElementById('zone-input-height').value) || 50,
+                x: parseFloat(document.getElementById('zone-input-x').value) || 0,
+                y: parseFloat(document.getElementById('zone-input-y').value) || 0
+            };
+
+            saveScreens();
+            closeModal('modal-edit-zone');
+            showToast(`Zon ${index + 1} har sparats!`);
+        }
+
+        function clearPlayerIntervals() {
+            playerIntervals.forEach(id => clearInterval(id));
+            playerIntervals = [];
+        }
+
+        function promptDeleteCurrentScreen() {
+            const current = getActiveScreen();
+            if (!current) return;
+            if (screens.length <= 1) {
+                showToast('Du måste ha minst en skärm kvar.');
+                return;
+            }
+            showConfirm('Ta bort skärm', `Är du säker på att du vill ta bort skärmen "${current.name}" från servern?`, () => {
+                deleteScreen(current);
+                showToast('Skärmen har raderats från servern.');
+            });
+        }
+
+        function copyKioskUrl() {
+            const input = document.getElementById('kiosk-url-display');
+            if (input) {
+                input.select();
+                document.execCommand('copy');
+                showToast('Kiosk-URL kopierad till urklipp!');
+            }
+        }
+
+        function setupPlayerView() {
+            clearPlayerIntervals();
+            const current = getActiveScreen();
+            const viewport = document.getElementById('kiosk-zones-viewport');
+            if (!viewport) return;
+
+            const dropdown = document.getElementById('player-screen-selector');
+            if (dropdown) {
+                dropdown.innerHTML = '';
+                screens.forEach(s => {
+                    const opt = document.createElement('option');
+                    opt.value = s.id;
+                    opt.innerText = s.name;
+                    if (s.id === activeScreenId) opt.selected = true;
+                    dropdown.appendChild(opt);
+                });
+            }
+
+            if (document.getElementById('current-screen-player-title')) {
+                document.getElementById('current-screen-player-title').innerText = current ? current.name : 'Kiosk Player';
+            }
+            if (document.getElementById('current-screen-zones-info')) {
+                document.getElementById('current-screen-zones-info').innerText = current ? `${current.zoneCount} Zoner` : '';
+            }
+
+            viewport.innerHTML = '';
+            if (!current) return;
+
+            current.zones.forEach((z, idx) => {
+                const zoneWrapper = document.createElement('div');
+                zoneWrapper.className = 'absolute overflow-hidden bg-black';
+                zoneWrapper.style.left = `${z.x}%`;
+                zoneWrapper.style.top = `${z.y}%`;
+                zoneWrapper.style.width = `${z.width}%`;
+                zoneWrapper.style.height = `${z.height}%`;
+
+                const zoomScale = (z.zoom || 100) / 100;
+                const iframeWidth = 100 / zoomScale;
+                const iframeHeight = 100 / zoomScale;
+
+                const finalUrl = fixAndFormatUrl(z.url, z.useProxy);
+
+                const iframe = document.createElement('iframe');
+                iframe.id = `kiosk-iframe-zone-${idx}`;
+                iframe.src = finalUrl;
+                iframe.className = 'border-0 w-full h-full';
+                iframe.style.width = `${iframeWidth}%`;
+                iframe.style.height = `${iframeHeight}%`;
+                iframe.style.transform = `scale(${zoomScale})`;
+                iframe.style.transformOrigin = '0 0';
+                iframe.setAttribute('allow', 'autoplay; fullscreen');
+
+                zoneWrapper.appendChild(iframe);
+                viewport.appendChild(zoneWrapper);
+
+                if (z.refreshInterval && z.refreshInterval > 0) {
+                    const intervalMs = z.refreshInterval * 60 * 1000;
+                    const timerId = setInterval(() => {
+                        const f = document.getElementById(`kiosk-iframe-zone-${idx}`);
+                        if (f) f.src = fixAndFormatUrl(z.url, z.useProxy);
+                    }, intervalMs);
+                    playerIntervals.push(timerId);
+                }
+            });
+        }
+
+        function changePlayerScreenFromDropdown(screenId) {
+            activeScreenId = screenId;
+            setupPlayerView();
+        }
+
+        function populateCategoryDropdown() {
+            const select = document.getElementById('screen-input-category-select');
+            if (!select) return;
+
+            const existingCats = getAllCategories();
+            select.innerHTML = '';
+            existingCats.forEach(cat => {
+                const opt = document.createElement('option');
+                opt.value = cat;
+                opt.innerText = cat;
+                select.appendChild(opt);
+            });
+
+            const newOpt = document.createElement('option');
+            newOpt.value = '__NEW__';
+            newOpt.innerText = '+ Skapa ny kategori...';
+            select.appendChild(newOpt);
+
+            toggleCustomCategoryInput(select);
+        }
+
+        function toggleCustomCategoryInput(select) {
+            const customInput = document.getElementById('screen-input-category-custom');
+            if (!customInput) return;
+            if (select.value === '__NEW__') {
+                customInput.classList.remove('hidden');
+                customInput.required = true;
+            } else {
+                customInput.classList.add('hidden');
+                customInput.required = false;
+            }
+        }
+
+        function populateTemplateDropdown() {
+            const select = document.getElementById('screen-input-template');
+            if (!select) return;
+
+            select.innerHTML = '<option value="">Ingen mall (Skapa från grunden)</option>';
+            templates.forEach(t => {
+                const opt = document.createElement('option');
+                opt.value = t.id;
+                opt.innerText = `${t.name} (${t.zoneCount} Zoner)`;
+                select.appendChild(opt);
+            });
+        }
+
+        function handleTemplateSelectInModal(select) {
+            const zoneCountContainer = document.getElementById('zonecount-container');
+            if (!zoneCountContainer) return;
+            if (select.value) {
+                zoneCountContainer.classList.add('hidden');
+            } else {
+                zoneCountContainer.classList.remove('hidden');
+            }
+        }
+
+        function saveCurrentScreenAsTemplate() {
+            const current = getActiveScreen();
+            if (!current) return;
+
+            const name = prompt('Ange ett namn för din nya skärmmall:', `${current.name} Mall`);
+            if (!name || !name.trim()) return;
+
+            const newTemplate = {
+                id: 'tpl_' + Date.now(),
+                name: name.trim(),
+                desc: `Mall baserad på skärmen "${current.name}" (${current.zoneCount} Zoner)`,
+                zoneCount: current.zoneCount,
+                zones: JSON.parse(JSON.stringify(current.zones))
+            };
+
+            templates.push(newTemplate);
+            saveTemplateToServer(newTemplate);
+            showToast(`Mallen "${newTemplate.name}" har sparats på servern!`);
+        }
+
+        function renderTemplatesModalList() {
+            const container = document.getElementById('templates-list-container');
+            if (!container) return;
+            container.innerHTML = '';
+
+            if (templates.length === 0) {
+                container.innerHTML = '<p class="text-xs text-slate-400 text-center py-6">Inga sparade mallar hittades.</p>';
+                return;
+            }
+
+            templates.forEach(t => {
+                const card = document.createElement('div');
+                card.className = 'bg-slate-950 border border-slate-800 rounded-xl p-4 flex items-center justify-between gap-4';
+                card.innerHTML = `
+                    <div class="space-y-1">
+                        <div class="flex items-center space-x-2">
+                            <h4 class="text-xs font-bold text-white">${escapeHtml(t.name)}</h4>
+                            <span class="bg-indigo-950 text-indigo-300 border border-indigo-800 text-[10px] px-2 py-0.5 rounded-full font-mono">${t.zoneCount} Zoner</span>
+                        </div>
+                        <p class="text-[11px] text-slate-400">${escapeHtml(t.desc || '')}</p>
+                    </div>
+                    <button onclick="promptDeleteTemplate('${t.id}')" class="text-rose-400 hover:text-rose-300 hover:bg-rose-950/60 p-2 rounded-lg transition border border-rose-900/40 shrink-0" title="Ta bort mall">
+                        <i class="fa-solid fa-trash-can text-xs"></i>
+                    </button>
+                `;
+                container.appendChild(card);
+            });
+        }
+
+        function promptDeleteTemplate(id) {
+            const templateToDelete = templates.find(t => t.id === id);
+            showConfirm('Ta bort mall', 'Vill du ta bort den här mallen?', () => {
+                templates = templates.filter(t => t.id !== id);
+                if (templateToDelete) {
+                    deleteTemplateFromServer(templateToDelete.name);
+                }
+                renderTemplatesModalList();
+                populateTemplateDropdown();
+                showToast('Mall borttagen.');
+            });
+        }
+
+        function handleCreateCategory(e) {
+            e.preventDefault();
+            const input = document.getElementById('category-input-new');
+            const name = input.value.trim();
+            if (!name) return;
+
+            const existing = getAllCategories();
+            if (existing.some(c => c.toLowerCase() === name.toLowerCase())) {
+                showToast('En kategori med detta namn finns redan.');
+                return;
+            }
+
+            customCategories.push(name);
+            saveCategories();
+            input.value = '';
+            renderCategoriesModalList();
+            renderAdminDashboard();
+            showToast(`Kategorin "${name}" skapades!`);
+        }
+
+        function renderCategoriesModalList() {
+            const container = document.getElementById('categories-list-container');
+            if (!container) return;
+            container.innerHTML = '';
+
+            const allCats = getAllCategories();
+            allCats.forEach(cat => {
+                const screenCount = screens.filter(s => s.category === cat).length;
+                const canDelete = screenCount === 0;
+
+                const card = document.createElement('div');
+                card.className = 'bg-slate-950 border border-slate-800 rounded-xl p-3.5 flex items-center justify-between gap-3';
+                card.innerHTML = `
+                    <div class="flex items-center space-x-3 truncate">
+                        <i class="fa-solid fa-folder text-indigo-400 text-sm"></i>
+                        <span class="text-xs font-bold text-white truncate">${escapeHtml(cat)}</span>
+                        <span class="text-[10px] font-mono px-2 py-0.5 rounded-full ${screenCount > 0 ? 'bg-indigo-950 text-indigo-300 border border-indigo-800' : 'bg-slate-800 text-slate-400'} shrink-0">
+                            ${screenCount} ${screenCount === 1 ? 'skärm' : 'skärmar'}
+                        </span>
+                    </div>
+                    <div class="flex items-center space-x-1.5 shrink-0">
+                        <button onclick="handleRenameCategory('${escapeHtml(cat)}')" class="bg-slate-800 hover:bg-slate-700 text-slate-300 px-2.5 py-1.5 rounded-lg text-xs font-medium border border-slate-700 transition flex items-center" title="Döp om">
+                            <i class="fa-solid fa-pen text-[11px] mr-1"></i> Döp om
+                        </button>
+                        <button onclick="promptDeleteCategory('${escapeHtml(cat)}')" ${!canDelete ? 'disabled' : ''} class="px-2.5 py-1.5 rounded-lg text-xs font-medium transition border ${canDelete ? 'bg-rose-950/60 hover:bg-rose-900 text-rose-300 border-rose-800/60' : 'bg-slate-900 text-slate-600 border-slate-800 cursor-not-allowed opacity-50'} flex items-center">
+                            <i class="fa-solid fa-trash-can text-[11px] mr-1"></i> Radera
+                        </button>
+                    </div>
+                `;
+                container.appendChild(card);
+            });
+        }
+
+        function handleRenameCategory(oldName) {
+            const newName = prompt(`Ange nytt namn för kategorin "${oldName}":`, oldName);
+            if (!newName || !newName.trim() || newName.trim() === oldName) return;
+            const trimmedNew = newName.trim();
+
+            screens.forEach(s => { if (s.category === oldName) s.category = trimmedNew; });
+            customCategories = customCategories.map(c => c === oldName ? trimmedNew : c);
+
+            saveScreens();
+            saveCategories();
+            renderCategoriesModalList();
+            showToast(`Kategorin döptes om till "${trimmedNew}"`);
+        }
+
+        function promptDeleteCategory(catName) {
+            const count = screens.filter(s => s.category === catName).length;
+            if (count > 0) return;
+
+            showConfirm('Radera kategori', `Är du säker på att du vill radera den tomma kategorin "${catName}"?`, () => {
+                customCategories = customCategories.filter(c => c !== catName);
+                saveCategories();
+                renderCategoriesModalList();
+                renderAdminDashboard();
+                showToast(`Kategorin "${catName}" raderades.`);
+            });
+        }
+
+        function openEditScreenModal() {
+            const current = getActiveScreen();
+            if (!current) return;
+
+            document.getElementById('screen-edit-name').value = current.name;
+            document.getElementById('screen-edit-desc').value = current.desc || '';
+            populateEditCategoryDropdown(current.category);
+            openModal('modal-edit-screen');
+        }
+
+        function populateEditCategoryDropdown(currentCategory) {
+            const select = document.getElementById('screen-edit-category-select');
+            if (!select) return;
+
+            const existingCats = getAllCategories();
+            select.innerHTML = '';
+            existingCats.forEach(cat => {
+                const opt = document.createElement('option');
+                opt.value = cat;
+                opt.innerText = cat;
+                if (cat === currentCategory) opt.selected = true;
+                select.appendChild(opt);
+            });
+
+            const newOpt = document.createElement('option');
+            newOpt.value = '__NEW__';
+            newOpt.innerText = '+ Skapa ny kategori...';
+            select.appendChild(newOpt);
+
+            toggleCustomCategoryInputEdit(select);
+        }
+
+        function toggleCustomCategoryInputEdit(select) {
+            const customInput = document.getElementById('screen-edit-category-custom');
+            if (!customInput) return;
+            if (select.value === '__NEW__') {
+                customInput.classList.remove('hidden');
+                customInput.required = true;
+            } else {
+                customInput.classList.add('hidden');
+                customInput.required = false;
+            }
+        }
+
+        function handleSaveScreenDetails(e) {
+            e.preventDefault();
+            const current = getActiveScreen();
+            if (!current) return;
+
+            const oldName = current.name;
+            const oldCategory = current.category;
+
+            const name = document.getElementById('screen-edit-name').value.trim();
+            const desc = document.getElementById('screen-edit-desc').value.trim();
+
+            const catSelect = document.getElementById('screen-edit-category-select');
+            let category = catSelect.value;
+            if (category === '__NEW__') {
+                category = document.getElementById('screen-edit-category-custom').value.trim() || 'Allmänna Skärmar';
+                if (!customCategories.includes(category)) {
+                    customCategories.push(category);
+                    saveCategories();
+                }
+            }
+
+            current.name = name;
+            current.desc = desc;
+            current.category = category;
+
+            saveScreen(current, oldCategory, oldName);
+            closeModal('modal-edit-screen');
+            showToast(`Skärmen "${name}" uppdaterades på servern!`);
+        }
+
+        function handleCreateScreen(e) {
+            e.preventDefault();
+            const name = document.getElementById('screen-input-name').value.trim();
+            const desc = document.getElementById('screen-input-desc').value.trim();
+            
+            const catSelect = document.getElementById('screen-input-category-select');
+            let category = catSelect.value;
+            if (category === '__NEW__') {
+                category = document.getElementById('screen-input-category-custom').value.trim() || 'Allmänna Skärmar';
+                if (!customCategories.includes(category)) {
+                    customCategories.push(category);
+                    saveCategories();
+                }
+            }
+
+            const templateId = document.getElementById('screen-input-template').value;
+            const selectedTemplate = templates.find(t => t.id === templateId);
+
+            const id = 'screen_' + Date.now();
+            let zoneCount = parseInt(document.getElementById('screen-input-zonecount').value, 10) || 1;
+            let zones = [];
+
+            if (selectedTemplate) {
+                zoneCount = selectedTemplate.zoneCount;
+                zones = JSON.parse(JSON.stringify(selectedTemplate.zones));
+            } else {
+                for (let i = 0; i < zoneCount; i++) {
+                    zones.push({
+                        title: `Zon ${i+1}`,
+                        url: 'https://docs.google.com/presentation/',
+                        width: 50,
+                        height: 50,
+                        x: 0,
+                        y: 0,
+                        zoom: 100,
+                        refreshInterval: 15
+                    });
+                }
+            }
+
+            const newScreen = {
+                id: id,
+                name: name,
+                category: category,
+                desc: desc || 'Arvika Skola',
+                zoneCount: zoneCount,
+                zones: zones
+            };
+
+            screens.push(newScreen);
+            activeScreenId = id;
+
+            saveScreen(newScreen);
+            closeModal('modal-add-screen');
+            document.getElementById('screen-input-name').value = '';
+            document.getElementById('screen-input-desc').value = '';
+            showToast(`Skärmen "${name}" skapades på servern!`);
+        }
+
+        window.onload = function() {
+            setupPWA();
+
+            const urlParams = new URLSearchParams(window.location.search);
+            const modeParam = urlParams.get('mode');
+            const screenParam = urlParams.get('screen');
+
+            loadScreensAndTemplates().then(() => {
+                if (screenParam) {
+                    const found = screens.find(s => s.id === screenParam);
+                    if (found) activeScreenId = found.id;
+                }
+
+                if (modeParam === 'player') {
+                    switchMode('player');
+                } else {
+                    switchMode('admin');
+                }
+            });
+        };
+    </script>
+</body>
+</html>
