@@ -518,7 +518,7 @@
             // Auto-correct standard Google Slides edit/view links to embed format
             if (cleanUrl.includes('docs.google.com/presentation')) {
                 if (cleanUrl.includes('/d/') && !cleanUrl.includes('/d/e/')) {
-                    cleanUrl = cleanUrl.replace(/\/presentation\/d\/([^\/]+).*/, 'https://docs.google.com/presentation/d/$1/embed?start=true&loop=true&delayms=5000');
+                    cleanUrl = cleanUrl.replace(/.*\/presentation\/d\/([^\/]+).*/, 'https://docs.google.com/presentation/d/$1/embed?start=true&loop=true&delayms=5000');
                 } else if (cleanUrl.includes('/pub')) {
                     cleanUrl = cleanUrl.replace('/pub', '/embed');
                     if (!cleanUrl.includes('start=true')) {
@@ -1209,8 +1209,18 @@
             }
         }
 
+        let masterKioskReloadInterval = null;
+
         function setupPlayerView() {
             clearPlayerIntervals();
+            
+            // Master Auto-Reload: Fetch the latest JSON from the server every 10 minutes
+            // If the data has changed (or to just keep the kiosk fresh), reload the page.
+            if (masterKioskReloadInterval) clearInterval(masterKioskReloadInterval);
+            masterKioskReloadInterval = setInterval(() => {
+                window.location.reload();
+            }, 10 * 60 * 1000); // 10 minutes
+
             const current = getActiveScreen();
             const viewport = document.getElementById('kiosk-zones-viewport');
             if (!viewport) return;
