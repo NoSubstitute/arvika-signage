@@ -538,12 +538,14 @@
             // Auto-correct standard Google Slides edit/view links to embed format
             if (cleanUrl.includes('docs.google.com/presentation')) {
                 if (cleanUrl.includes('/d/') && !cleanUrl.includes('/d/e/')) {
-                    cleanUrl = cleanUrl.replace(/.*\/presentation\/d\/([^\/]+).*/, 'https://docs.google.com/presentation/d/$1/embed?start=true&loop=true&delayms=5000');
+                    cleanUrl = cleanUrl.replace(/.*\/presentation\/d\/([^\/]+).*/, 'https://docs.google.com/presentation/d/$1/embed?start=true&loop=true&delayms=5000&rm=minimal');
                 } else if (cleanUrl.includes('/pub')) {
                     cleanUrl = cleanUrl.replace('/pub', '/embed');
                     if (!cleanUrl.includes('start=true')) {
-                        cleanUrl += (cleanUrl.includes('?') ? '&' : '?') + 'start=true&loop=true&delayms=5000';
+                        cleanUrl += (cleanUrl.includes('?') ? '&' : '?') + 'start=true&loop=true&delayms=5000&rm=minimal';
                     }
+                } else if (cleanUrl.includes('/embed') && !cleanUrl.includes('rm=minimal')) {
+                    cleanUrl += (cleanUrl.includes('?') ? '&' : '?') + 'rm=minimal';
                 }
                 return cleanUrl;
             }
