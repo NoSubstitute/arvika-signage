@@ -610,7 +610,7 @@
 
         // Server API Endpoint (Relativ sökväg till api.php, eller Google Apps Script URL)
         // Byt ut URL:en nedan mot din Apps Script "Web App" URL.
-        const SERVER_API_URL = 'https://script.google.com/macros/s/AKfycbzBGTP1GhBdTM6j-1Mr8Gd7_G5HTZyuQxdxKtt5Rlggdx8t_6WKozyU2il9CpO-9R4t/exec';
+        const SERVER_API_URL = 'https://script.google.com/macros/s/YOUR_SCRIPT_ID_HERE/exec';
 
         // Hjälpfunktion: Kontrollera om vi körs i förhandsgranskningsläge/sandbox
         function isPreviewEnv() {
@@ -828,7 +828,8 @@
                 }
                 const res = await fetch(`${SERVER_API_URL}?action=save`, {
                     method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
+                    redirect: 'follow',
+                    headers: { 'Content-Type': 'text/plain;charset=utf-8' },
                     body: JSON.stringify({
                         screen: screen,
                         oldCategory: oldCategory || screen.category,
@@ -851,7 +852,8 @@
                 if (!isPreviewEnv()) {
                     await fetch(`${SERVER_API_URL}?action=delete`, {
                         method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
+                        redirect: 'follow',
+                        headers: { 'Content-Type': 'text/plain;charset=utf-8' },
                         body: JSON.stringify({ category: screen.category, name: screen.name })
                     });
                 }
@@ -874,7 +876,8 @@
                 if (isPreviewEnv()) return;
                 await fetch(`${SERVER_API_URL}?action=saveTemplate`, {
                     method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
+                    redirect: 'follow',
+                    headers: { 'Content-Type': 'text/plain;charset=utf-8' },
                     body: JSON.stringify(template)
                 });
             } catch (err) {
@@ -889,7 +892,8 @@
                 if (isPreviewEnv()) return;
                 await fetch(`${SERVER_API_URL}?action=deleteTemplate`, {
                     method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
+                    redirect: 'follow',
+                    headers: { 'Content-Type': 'text/plain;charset=utf-8' },
                     body: JSON.stringify({ name: templateName })
                 });
             } catch (err) {
