@@ -82,6 +82,19 @@
 
     <main class="flex-1 p-4 md:p-8 max-w-7xl w-full mx-auto">
 
+        <!-- ==================== LOGIN VIEW ==================== -->
+        <section id="view-login" class="hidden min-h-[60vh] flex flex-col items-center justify-center fade-in">
+            <div class="bg-slate-900 border border-slate-800 rounded-2xl p-8 max-w-sm w-full shadow-2xl text-center space-y-6">
+                <div class="w-16 h-16 bg-indigo-600/20 text-indigo-400 rounded-full flex items-center justify-center mx-auto mb-4">
+                    <i class="fa-solid fa-lock text-2xl"></i>
+                </div>
+                <h2 class="text-xl font-bold text-white">Admin Inloggning</h2>
+                <p class="text-sm text-slate-400">Ange PIN-kod för att hantera skärmar.</p>
+                <input type="password" id="admin-pin-input" onkeypress="if(event.key === 'Enter') attemptLogin()" placeholder="••••" class="w-full bg-slate-950 border border-slate-800 rounded-xl px-4 py-3 text-center text-2xl tracking-[0.5em] text-white focus:outline-none focus:border-indigo-500 font-mono" autocomplete="off">
+                <button onclick="attemptLogin()" class="w-full bg-indigo-600 hover:bg-indigo-500 text-white font-semibold py-3 px-4 rounded-xl transition-colors shadow-lg shadow-indigo-600/20">Logga in</button>
+            </div>
+        </section>
+
         <!-- ==================== ADMIN DASHBOARD VIEW ==================== -->
         <section id="view-admin" class="hidden space-y-6 fade-in">
             
@@ -648,23 +661,38 @@
             return screens.find(s => s.id === activeScreenId) || screens[0];
         }
 
+        let currentAdminPin = '';
+
+        function attemptLogin() {
+            const pin = document.getElementById('admin-pin-input').value;
+            if (pin.length > 0) {
+                currentAdminPin = pin;
+                document.getElementById('view-login').classList.add('hidden');
+                document.getElementById('view-admin').classList.remove('hidden');
+                document.getElementById('app-header').classList.remove('hidden');
+                renderAdminDashboard();
+            }
+        }
+
         function switchMode(mode) {
             const adminView = document.getElementById('view-admin');
             const playerView = document.getElementById('view-player');
+            const loginView = document.getElementById('view-login');
             const header = document.getElementById('app-header');
 
             if (mode === 'player') {
                 if (adminView) adminView.classList.add('hidden');
+                if (loginView) loginView.classList.add('hidden');
                 if (playerView) playerView.classList.remove('hidden');
                 if (header) header.classList.add('hidden');
                 setupPlayerView();
                 requestWakeLock();
             } else {
                 if (playerView) playerView.classList.add('hidden');
-                if (adminView) adminView.classList.remove('hidden');
-                if (header) header.classList.remove('hidden');
+                if (adminView) adminView.classList.add('hidden');
+                if (header) header.classList.add('hidden');
+                if (loginView) loginView.classList.remove('hidden');
                 clearPlayerIntervals();
-                renderAdminDashboard();
                 releaseWakeLock();
             }
         }
@@ -834,6 +862,7 @@
                     redirect: 'follow',
                     headers: { 'Content-Type': 'text/plain;charset=utf-8' },
                     body: JSON.stringify({
+                        pin: currentAdminPin,
                         screen: screen,
                         oldCategory: oldCategory || screen.category,
                         oldName: oldName || screen.name
@@ -857,7 +886,7 @@
                         method: 'POST',
                         redirect: 'follow',
                         headers: { 'Content-Type': 'text/plain;charset=utf-8' },
-                        body: JSON.stringify({ category: screen.category, name: screen.name })
+                        body: JSON.stringify({ pin: currentAdminPin, category: screen.category, name: screen.name })
                     });
                 }
                 screens = screens.filter(s => s.id !== screen.id);
@@ -881,7 +910,7 @@
                     method: 'POST',
                     redirect: 'follow',
                     headers: { 'Content-Type': 'text/plain;charset=utf-8' },
-                    body: JSON.stringify(template)
+                    body: JSON.stringify({ pin: currentAdminPin, ...template })
                 });
             } catch (err) {
                 console.warn('Kunde inte spara mall till servern:', err);
@@ -897,7 +926,7 @@
                     method: 'POST',
                     redirect: 'follow',
                     headers: { 'Content-Type': 'text/plain;charset=utf-8' },
-                    body: JSON.stringify({ name: templateName })
+                    body: JSON.stringify({ pin: currentAdminPin, name: templateName })
                 });
             } catch (err) {
                 console.warn('Kunde inte radera mall från servern:', err);
