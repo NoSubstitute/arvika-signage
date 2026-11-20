@@ -739,10 +739,13 @@
 
         function setupPWA() {
             // Generate PWA manifest targeting Admin view
+            const pathname = window.location.pathname;
+            const basePath = pathname.substring(0, pathname.lastIndexOf('/') + 1);
+
             const manifestData = {
                 name: "Arvika Signage Manager (Admin & Kiosk)",
                 short_name: "ArvikaSignage",
-                start_url: "./?mode=admin",
+                start_url: basePath + "?mode=admin",
                 display: "standalone",
                 background_color: "#020617",
                 theme_color: "#4338ca",
