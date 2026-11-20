@@ -199,6 +199,35 @@
                             <!-- Zone config cards rendered via JS -->
                         </div>
                     </div>
+                    
+                    <!-- Per-Screen Clock Config -->
+                    <div class="bg-slate-900 border border-slate-800 rounded-2xl p-6 shadow-lg space-y-4">
+                        <div class="flex items-center justify-between">
+                            <h3 class="text-base font-bold text-white flex items-center">
+                                <i class="fa-regular fa-clock text-indigo-400 mr-2"></i> Klocka (Skärmspecifik)
+                            </h3>
+                            <label class="relative inline-flex items-center cursor-pointer">
+                                <input type="checkbox" id="screen-clock-enabled" class="sr-only peer" onchange="saveScreenClockSettings()">
+                                <div class="w-9 h-5 bg-slate-700 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-indigo-600"></div>
+                            </label>
+                        </div>
+                        <p class="text-xs text-slate-400">Visar en digital 24h-klocka ovanpå denna specifika skärm (genomskinlig bakgrund). Ange placering och storlek (0-100%).</p>
+                        
+                        <div class="grid grid-cols-3 gap-3">
+                            <div>
+                                <label class="block text-[10px] font-semibold text-slate-400 mb-1 uppercase tracking-wider">X (%)</label>
+                                <input type="number" id="screen-clock-x" value="5" class="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-sm text-white focus:border-indigo-500 font-mono text-center" onchange="saveScreenClockSettings()">
+                            </div>
+                            <div>
+                                <label class="block text-[10px] font-semibold text-slate-400 mb-1 uppercase tracking-wider">Y (%)</label>
+                                <input type="number" id="screen-clock-y" value="5" class="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-sm text-white focus:border-indigo-500 font-mono text-center" onchange="saveScreenClockSettings()">
+                            </div>
+                            <div>
+                                <label class="block text-[10px] font-semibold text-slate-400 mb-1 uppercase tracking-wider">Storlek</label>
+                                <input type="number" id="screen-clock-size" value="4" class="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-sm text-white focus:border-indigo-500 font-mono text-center" onchange="saveScreenClockSettings()">
+                            </div>
+                        </div>
+                    </div>
 
                 </div>
 
@@ -243,6 +272,9 @@
             <div id="kiosk-zones-viewport" class="relative w-full h-full bg-slate-950 overflow-hidden">
                 <!-- Zone containers and scaled iframes injected here -->
             </div>
+
+            <!-- Global Clock Overlay -->
+            <div id="kiosk-clock-overlay" class="hidden absolute text-white font-bold tracking-tight drop-shadow-md z-40 pointer-events-none" style="text-shadow: 0 4px 12px rgba(0,0,0,0.8);"></div>
 
             <!-- Player Controls Overlay (Hoverable) -->
             <div id="player-controls-overlay" class="absolute bottom-4 left-4 right-4 bg-slate-900/90 border border-slate-800 backdrop-blur rounded-2xl px-5 py-3 flex items-center justify-between text-xs text-slate-300 shadow-2xl opacity-0 hover:opacity-100 transition-opacity duration-300 z-50">
@@ -623,6 +655,9 @@
 
         let screens = [];
         let templates = [];
+        let globalSettings = {
+            clock: { enabled: false, x: 5, y: 5, size: 5 }
+        };
         let customCategories = [];
         let activeScreenId = 'screen_entre';
         let playerIntervals = [];
@@ -856,6 +891,15 @@
                 const response = await fetch(`${SERVER_API_URL}?action=list`);
                 if (response.ok) {
                     const serverData = await response.json();
+
+                    // Global Settings
+                    if (serverData.settings && serverData.settings.clock) {
+                        globalSettings = serverData.settings;
+                        document.getElementById('global-clock-enabled').checked = globalSettings.clock.enabled;
+                        document.getElementById('global-clock-x').value = globalSettings.clock.x;
+                        document.getElementById('global-clock-y').value = globalSettings.clock.y;
+                        document.getElementById('global-clock-size').value = globalSettings.clock.size;
+                    }
                     
                     // Skärmar
                     if (serverData.screens && serverData.screens.length > 0) {
@@ -978,6 +1022,22 @@
             }
         }
 
+        function saveScreenClockSettings() {
+            const current = getActiveScreen();
+            if (!current) return;
+            
+            if (!current.clock) {
+                current.clock = { enabled: false, x: 5, y: 5, size: 5 };
+            }
+
+            current.clock.enabled = document.getElementById('screen-clock-enabled').checked;
+            current.clock.x = parseFloat(document.getElementById('screen-clock-x').value) || 0;
+            current.clock.y = parseFloat(document.getElementById('screen-clock-y').value) || 0;
+            current.clock.size = parseFloat(document.getElementById('screen-clock-size').value) || 5;
+
+            saveScreens();
+        }
+
         function saveScreens() {
             const current = getActiveScreen();
             if (current) saveScreen(current);
@@ -1026,6 +1086,19 @@
 
             const baseUrl = window.location.href.split('?')[0];
             document.getElementById('kiosk-url-display').value = `${baseUrl}?mode=player&screen=${current.id}`;
+
+            // Populate Screen Clock Settings
+            if (current.clock) {
+                document.getElementById('screen-clock-enabled').checked = current.clock.enabled || false;
+                document.getElementById('screen-clock-x').value = current.clock.x || 5;
+                document.getElementById('screen-clock-y').value = current.clock.y || 5;
+                document.getElementById('screen-clock-size').value = current.clock.size || 5;
+            } else {
+                document.getElementById('screen-clock-enabled').checked = false;
+                document.getElementById('screen-clock-x').value = 5;
+                document.getElementById('screen-clock-y').value = 5;
+                document.getElementById('screen-clock-size').value = 4;
+            }
 
             renderScreenTabs();
             renderZonePresets(current);
@@ -1297,7 +1370,28 @@
 
             const current = getActiveScreen();
             const viewport = document.getElementById('kiosk-zones-viewport');
+            const clockOverlay = document.getElementById('kiosk-clock-overlay');
             if (!viewport) return;
+
+            // Render Per-Screen Clock Overlay
+            if (clockOverlay) {
+                if (current && current.clock && current.clock.enabled) {
+                    clockOverlay.classList.remove('hidden');
+                    clockOverlay.style.left = `${current.clock.x}%`;
+                    clockOverlay.style.top = `${current.clock.y}%`;
+                    clockOverlay.style.fontSize = `${current.clock.size}vw`;
+                    
+                    const updateClock = () => {
+                        const now = new Date();
+                        clockOverlay.innerText = now.toLocaleTimeString('sv-SE', { hour: '2-digit', minute: '2-digit' });
+                    };
+                    updateClock();
+                    const clockTimerId = setInterval(updateClock, 1000);
+                    playerIntervals.push(clockTimerId);
+                } else {
+                    clockOverlay.classList.add('hidden');
+                }
+            }
 
             const dropdown = document.getElementById('player-screen-selector');
             if (dropdown) {
