@@ -530,7 +530,7 @@
 
             // If website sets X-Frame-Options / CSP frame-ancestors, pass through CORS proxy
             if (useProxy) {
-                return `https://api.allorigins.win/raw?url=${encodeURIComponent(cleanUrl)}`;
+                return `https://corsproxy.io/?${encodeURIComponent(cleanUrl)}`;
             }
 
             return cleanUrl;
