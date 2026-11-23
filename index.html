@@ -946,11 +946,23 @@
                     // Skärmar
                     if (serverData.screens && serverData.screens.length > 0) {
                         screens = serverData.screens;
-                        customCategories = Array.from(new Set(screens.map(s => s.category || 'Allmänna Skärmar')));
                         console.log('Skärmar inlästa från servern:', screens);
                     } else {
                         screens = JSON.parse(JSON.stringify(DEFAULT_SCREENS));
                     }
+
+                    // Kategorier (inklusive tomma kategorier från servern och localStorage)
+                    let serverCats = [];
+                    if (serverData.categories && Array.isArray(serverData.categories)) {
+                        serverCats = serverData.categories;
+                    }
+                    const catsFromScreens = screens.map(s => s.category || 'Allmänna Skärmar');
+                    let localCats = [];
+                    try {
+                        const stored = localStorage.getItem('arvika_signage_categories');
+                        if (stored) localCats = JSON.parse(stored);
+                    } catch(e) {}
+                    customCategories = Array.from(new Set([...serverCats, ...catsFromScreens, ...localCats]));
 
                     // Mallar
                     if (serverData.templates && serverData.templates.length > 0) {
@@ -970,7 +982,12 @@
                 console.log('Använder lokala standarddata. (Server-API ej nåbart eller körs i förhandsgranskning).');
                 screens = JSON.parse(JSON.stringify(DEFAULT_SCREENS));
                 templates = JSON.parse(JSON.stringify(DEFAULT_TEMPLATES));
-                customCategories = ['Gymnasieskolor', 'Restaurang & Skolmat', 'Grundskolor', 'Allmänna Skärmar'];
+                let localCats = [];
+                try {
+                    const stored = localStorage.getItem('arvika_signage_categories');
+                    if (stored) localCats = JSON.parse(stored);
+                } catch(e) {}
+                customCategories = Array.from(new Set([...localCats, 'Gymnasieskolor', 'Restaurang & Skolmat', 'Grundskolor', 'Allmänna Skärmar']));
             }
 
             screens.forEach(s => { if (!s.category) s.category = 'Allmänna Skärmar'; });
@@ -1102,8 +1119,55 @@
             // Mallar lagras numera enbart på servern. Denna är avsiktligt tom.
         }
 
+        async function saveCategoryToServer(categoryName) {
+            try {
+                if (!isPreviewEnv() && currentAdminPin) {
+                    await fetch(`${SERVER_API_URL}?action=saveCategory`, {
+                        method: 'POST',
+                        redirect: 'follow',
+                        headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+                        body: JSON.stringify({ pin: currentAdminPin, name: categoryName })
+                    });
+                }
+            } catch (e) {
+                console.warn('Kunde inte spara kategori till servern:', e);
+            }
+        }
+
+        async function renameCategoryOnServer(oldName, newName) {
+            try {
+                if (!isPreviewEnv() && currentAdminPin) {
+                    await fetch(`${SERVER_API_URL}?action=renameCategory`, {
+                        method: 'POST',
+                        redirect: 'follow',
+                        headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+                        body: JSON.stringify({ pin: currentAdminPin, oldName: oldName, newName: newName })
+                    });
+                }
+            } catch (e) {
+                console.warn('Kunde inte döpa om kategori på servern:', e);
+            }
+        }
+
+        async function deleteCategoryFromServer(catName) {
+            try {
+                if (!isPreviewEnv() && currentAdminPin) {
+                    await fetch(`${SERVER_API_URL}?action=deleteCategory`, {
+                        method: 'POST',
+                        redirect: 'follow',
+                        headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+                        body: JSON.stringify({ pin: currentAdminPin, name: catName })
+                    });
+                }
+            } catch (e) {
+                console.warn('Kunde inte radera kategori från servern:', e);
+            }
+        }
+
         function saveCategories() {
-            // Kategorier lagras numera enbart på servern i form av mappar. Denna är avsiktligt tom.
+            try {
+                localStorage.setItem('arvika_signage_categories', JSON.stringify(customCategories));
+            } catch (e) {}
         }
 
         function copyEmbedCode() {
@@ -1695,6 +1759,7 @@
 
             customCategories.push(name);
             saveCategories();
+            saveCategoryToServer(name);
             input.value = '';
             renderCategoriesModalList();
             renderAdminDashboard();
@@ -1744,7 +1809,9 @@
 
             saveScreens();
             saveCategories();
+            renameCategoryOnServer(oldName, trimmedNew);
             renderCategoriesModalList();
+            renderAdminDashboard();
             showToast(`Kategorin döptes om till "${trimmedNew}"`);
         }
 
@@ -1755,6 +1822,7 @@
             showConfirm('Radera kategori', `Är du säker på att du vill radera den tomma kategorin "${catName}"?`, () => {
                 customCategories = customCategories.filter(c => c !== catName);
                 saveCategories();
+                deleteCategoryFromServer(catName);
                 renderCategoriesModalList();
                 renderAdminDashboard();
                 showToast(`Kategorin "${catName}" raderades.`);
@@ -1823,6 +1891,7 @@
                 if (!customCategories.includes(category)) {
                     customCategories.push(category);
                     saveCategories();
+                    saveCategoryToServer(category);
                 }
             }
 
@@ -1853,6 +1922,7 @@
                 if (!customCategories.includes(category)) {
                     customCategories.push(category);
                     saveCategories();
+                    saveCategoryToServer(category);
                 }
             }
 
