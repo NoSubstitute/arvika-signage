@@ -158,6 +158,10 @@
                             <i class="fa-solid fa-floppy-disk mr-1.5"></i> Mall
                         </button>
 
+                        <button onclick="duplicateCurrentScreen()" class="bg-slate-800 hover:bg-slate-700 text-slate-300 border border-slate-700 font-medium text-xs px-3.5 py-2 rounded-xl transition flex items-center" title="Duplicera skärm">
+                            <i class="fa-solid fa-copy mr-1.5"></i> Duplicera
+                        </button>
+
                         <button onclick="promptDeleteCurrentScreen()" class="bg-rose-950/60 hover:bg-rose-900 text-rose-300 border border-rose-800/60 font-medium text-xs px-3.5 py-2 rounded-xl transition flex items-center" title="Ta bort skärm">
                             <i class="fa-solid fa-trash-can mr-1.5"></i> Ta bort
                         </button>
@@ -680,6 +684,7 @@
 
         let screens = [];
         let templates = [];
+        let screensNeedingSync = [];
         let globalSettings = {
             clock: { enabled: false, x: 5, y: 5, size: 5 }
         };
@@ -759,6 +764,10 @@
                         document.getElementById('view-login').classList.add('hidden');
                         document.getElementById('view-admin').classList.remove('hidden');
                         document.getElementById('app-header').classList.remove('hidden');
+                        if (screensNeedingSync.length > 0) {
+                            screensNeedingSync.forEach(s => saveScreen(s));
+                            screensNeedingSync = [];
+                        }
                         renderAdminDashboard();
                     } else {
                         throw new Error(data.error || 'Fel PIN');
@@ -957,6 +966,19 @@
             }
 
             screens.forEach(s => { if (!s.category) s.category = 'Allmänna Skärmar'; });
+
+            // Säkerställ att varje skärm har ett unikt ID för felfri skärmväxling
+            const seenScreenIds = new Set();
+            screens.forEach((s, idx) => {
+                if (!s.id || seenScreenIds.has(s.id)) {
+                    const uniqueId = 'screen_' + Date.now() + '_' + Math.random().toString(36).substr(2, 6);
+                    console.warn(`Dubblett-ID eller saknat ID upptäckt för skärm "${s.name}". Tilldelar nytt unikt ID: ${uniqueId}`);
+                    s.id = uniqueId;
+                    screensNeedingSync.push(s);
+                }
+                seenScreenIds.add(s.id);
+            });
+
             if (!screens.find(s => s.id === activeScreenId) && screens.length > 0) {
                 activeScreenId = screens[0].id;
             }
@@ -1374,6 +1396,40 @@
             playerIntervals = [];
         }
 
+        function duplicateCurrentScreen() {
+            const current = getActiveScreen();
+            if (!current) return;
+
+            const newName = prompt('Ange namn för den duplicerade skärmen:', `${current.name} (Kopia)`);
+            if (!newName || !newName.trim()) return;
+
+            const trimmedName = newName.trim();
+            const category = current.category || 'Allmänna Skärmar';
+
+            if (screens.some(s => (s.category || 'Allmänna Skärmar').toLowerCase() === category.toLowerCase() && s.name.toLowerCase() === trimmedName.toLowerCase())) {
+                showToast(`En skärm med namnet "${trimmedName}" finns redan i kategorin "${category}".`);
+                return;
+            }
+
+            const newId = 'screen_' + Date.now() + '_' + Math.random().toString(36).substr(2, 6);
+            const duplicatedScreen = {
+                id: newId,
+                name: trimmedName,
+                category: category,
+                desc: current.desc ? `${current.desc} (Kopia)` : 'Arvika Skola',
+                zoneCount: current.zoneCount,
+                zones: JSON.parse(JSON.stringify(current.zones)),
+                clock: current.clock ? JSON.parse(JSON.stringify(current.clock)) : { enabled: false, x: 5, y: 5, size: 5 }
+            };
+
+            screens.push(duplicatedScreen);
+            activeScreenId = newId;
+
+            saveScreen(duplicatedScreen);
+            renderAdminDashboard();
+            showToast(`Skärmen "${trimmedName}" duplicerades och sparades!`);
+        }
+
         function promptDeleteCurrentScreen() {
             const current = getActiveScreen();
             if (!current) return;
@@ -1762,6 +1818,12 @@
                 }
             }
 
+            // Förhindra att döpa om till ett redan befintligt skärmnamn i samma kategori
+            if (screens.some(s => s.id !== current.id && (s.category || 'Allmänna Skärmar').toLowerCase() === category.toLowerCase() && s.name.toLowerCase() === name.toLowerCase())) {
+                showToast(`En annan skärm med namnet "${name}" finns redan i kategorin "${category}".`);
+                return;
+            }
+
             current.name = name;
             current.desc = desc;
             current.category = category;
@@ -1786,10 +1848,16 @@
                 }
             }
 
+            // Förhindra skapande av dubblettnamn i samma kategori
+            if (screens.some(s => (s.category || 'Allmänna Skärmar').toLowerCase() === category.toLowerCase() && s.name.toLowerCase() === name.toLowerCase())) {
+                showToast(`En skärm med namnet "${name}" finns redan i kategorin "${category}".`);
+                return;
+            }
+
             const templateId = document.getElementById('screen-input-template').value;
             const selectedTemplate = templates.find(t => t.id === templateId);
 
-            const id = 'screen_' + Date.now();
+            const id = 'screen_' + Date.now() + '_' + Math.random().toString(36).substr(2, 6);
             let zoneCount = parseInt(document.getElementById('screen-input-zonecount').value, 10) || 1;
             let zones = [];
 
@@ -1839,7 +1907,7 @@
 
             loadScreensAndTemplates().then(() => {
                 if (screenParam) {
-                    const found = screens.find(s => s.id === screenParam);
+                    const found = screens.find(s => s.id === screenParam || s.name.toLowerCase() === screenParam.toLowerCase());
                     if (found) activeScreenId = found.id;
                 }
 
