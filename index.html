@@ -107,8 +107,32 @@
             
             <!-- Screen Selector Bar -->
             <div class="bg-slate-900 border border-slate-800 rounded-2xl p-4 flex flex-wrap items-center justify-between gap-4 shadow-lg">
-                <div class="flex-1 overflow-x-auto" id="screen-tabs-container">
-                    <!-- Screen categories and tabs dynamically generated -->
+                <div class="flex flex-wrap items-center gap-4">
+                    <!-- Category Selector Dropdown -->
+                    <div class="flex items-center space-x-2">
+                        <label for="admin-category-select" class="text-xs font-semibold text-slate-400 uppercase tracking-wider flex items-center gap-1.5 shrink-0">
+                            <i class="fa-solid fa-folder text-indigo-400"></i> Kategori:
+                        </label>
+                        <div class="relative min-w-[180px] sm:min-w-[220px]">
+                            <select id="admin-category-select" onchange="onAdminCategoryChange(this.value)" class="w-full bg-slate-950 border border-slate-800 hover:border-slate-700 rounded-xl pl-3.5 pr-8 py-2 text-xs font-medium text-white focus:outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 transition appearance-none cursor-pointer shadow-inner">
+                                <!-- Populated dynamically -->
+                            </select>
+                            <i class="fa-solid fa-chevron-down absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 text-[10px] pointer-events-none"></i>
+                        </div>
+                    </div>
+
+                    <!-- Screen Selector Dropdown -->
+                    <div class="flex items-center space-x-2">
+                        <label for="admin-screen-select" class="text-xs font-semibold text-slate-400 uppercase tracking-wider flex items-center gap-1.5 shrink-0">
+                            <i class="fa-solid fa-tv text-indigo-400"></i> Skärm:
+                        </label>
+                        <div class="relative min-w-[200px] sm:min-w-[240px]">
+                            <select id="admin-screen-select" onchange="onAdminScreenChange(this.value)" class="w-full bg-slate-950 border border-slate-800 hover:border-slate-700 rounded-xl pl-3.5 pr-8 py-2 text-xs font-medium text-white focus:outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 transition appearance-none cursor-pointer shadow-inner">
+                                <!-- Populated dynamically -->
+                            </select>
+                            <i class="fa-solid fa-chevron-down absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 text-[10px] pointer-events-none"></i>
+                        </div>
+                    </div>
                 </div>
                 <div class="flex items-center space-x-2 shrink-0">
                     <button onclick="openModal('modal-manage-categories')" class="bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 font-medium text-xs px-3.5 py-2.5 rounded-xl flex items-center transition">
@@ -1050,8 +1074,12 @@
                         body: JSON.stringify({ pin: currentAdminPin, category: screen.category, name: screen.name })
                     });
                 }
+                const oldCategory = screen.category || 'Allmänna Skärmar';
                 screens = screens.filter(s => s.id !== screen.id);
-                if (screens.length > 0) {
+                const remainingInCat = screens.filter(s => (s.category || 'Allmänna Skärmar') === oldCategory);
+                if (remainingInCat.length > 0) {
+                    activeScreenId = remainingInCat[0].id;
+                } else if (screens.length > 0) {
                     activeScreenId = screens[0].id;
                 } else {
                     activeScreenId = null;
@@ -1219,7 +1247,7 @@
                 document.getElementById('screen-clock-size').value = 4;
             }
 
-            renderScreenTabs();
+            renderScreenDropdowns();
             renderZonePresets(current);
             renderVisualizerCanvas(current);
             renderZonesConfigList(current);
@@ -1229,47 +1257,92 @@
             renderCategoriesModalList();
         }
 
-        function renderScreenTabs() {
-            const container = document.getElementById('screen-tabs-container');
-            if (!container) return;
-            container.innerHTML = '';
+        let selectedAdminCategory = null;
+
+        function renderScreenDropdowns() {
+            const catSelect = document.getElementById('admin-category-select');
+            const screenSelect = document.getElementById('admin-screen-select');
+            if (!catSelect || !screenSelect) return;
 
             const allCats = getAllCategories();
-            const categoriesWrapper = document.createElement('div');
-            categoriesWrapper.className = 'flex flex-wrap items-center gap-6';
+            const current = getActiveScreen();
 
-            allCats.forEach(catName => {
-                const categoryScreens = screens.filter(s => (s.category || 'Allmänna Skärmar') === catName);
-                if (categoryScreens.length === 0) return;
+            // Bestäm aktiv kategori: om aktiv skärm har en kategori, använd den. Annars tidigare vald eller första kategori.
+            if (current && (!selectedAdminCategory || (current.category || 'Allmänna Skärmar') === selectedAdminCategory || !allCats.includes(selectedAdminCategory))) {
+                selectedAdminCategory = current.category || 'Allmänna Skärmar';
+            } else if (!selectedAdminCategory || !allCats.includes(selectedAdminCategory)) {
+                selectedAdminCategory = allCats[0] || 'Allmänna Skärmar';
+            }
 
-                const groupDiv = document.createElement('div');
-                groupDiv.className = 'flex items-center space-x-2 bg-slate-950/60 p-1.5 rounded-2xl border border-slate-800/80';
-
-                const catBadge = document.createElement('span');
-                catBadge.className = 'text-[10px] uppercase font-bold text-slate-400 tracking-wider px-2 py-1 flex items-center gap-1 shrink-0';
-                catBadge.innerHTML = `<i class="fa-solid fa-folder text-indigo-400"></i> ${escapeHtml(catName)}`;
-                groupDiv.appendChild(catBadge);
-
-                categoryScreens.sort((a, b) => a.name.localeCompare(b.name, 'sv'));
-
-                categoryScreens.forEach(s => {
-                    const isActive = s.id === activeScreenId;
-                    const btn = document.createElement('button');
-                    btn.onclick = () => {
-                        activeScreenId = s.id;
-                        renderAdminDashboard();
-                    };
-                    btn.className = isActive
-                        ? 'bg-indigo-600 text-white font-semibold text-xs px-3.5 py-1.5 rounded-xl transition shadow-md shadow-indigo-600/20 whitespace-nowrap flex items-center space-x-1.5'
-                        : 'bg-slate-800/80 hover:bg-slate-800 text-slate-300 font-medium text-xs px-3.5 py-1.5 rounded-xl transition whitespace-nowrap flex items-center space-x-1.5';
-                    btn.innerHTML = `<i class="fa-solid fa-tv text-[11px]"></i> <span>${escapeHtml(s.name)}</span>`;
-                    groupDiv.appendChild(btn);
+            // Fyll Kategori-dropdown (visar även antal skärmar per kategori)
+            catSelect.innerHTML = '';
+            if (allCats.length === 0) {
+                const opt = document.createElement('option');
+                opt.value = 'Allmänna Skärmar';
+                opt.innerText = 'Allmänna Skärmar (0)';
+                catSelect.appendChild(opt);
+            } else {
+                allCats.forEach(cat => {
+                    const count = screens.filter(s => (s.category || 'Allmänna Skärmar') === cat).length;
+                    const opt = document.createElement('option');
+                    opt.value = cat;
+                    opt.innerText = `${cat} (${count})`;
+                    if (cat === selectedAdminCategory) opt.selected = true;
+                    catSelect.appendChild(opt);
                 });
+            }
 
-                categoriesWrapper.appendChild(groupDiv);
-            });
+            // Fyll Skärm-dropdown för den valda kategorin
+            const catScreens = screens.filter(s => (s.category || 'Allmänna Skärmar') === selectedAdminCategory);
+            catScreens.sort((a, b) => a.name.localeCompare(b.name, 'sv'));
 
-            container.appendChild(categoriesWrapper);
+            screenSelect.innerHTML = '';
+            if (catScreens.length === 0) {
+                const emptyOpt = document.createElement('option');
+                emptyOpt.value = '';
+                emptyOpt.innerText = '(Inga skärmar i kategorin)';
+                emptyOpt.disabled = true;
+                emptyOpt.selected = true;
+                screenSelect.appendChild(emptyOpt);
+                screenSelect.disabled = true;
+            } else {
+                screenSelect.disabled = false;
+                catScreens.forEach(s => {
+                    const opt = document.createElement('option');
+                    opt.value = s.id;
+                    opt.innerText = s.name;
+                    if (current && s.id === current.id) opt.selected = true;
+                    screenSelect.appendChild(opt);
+                });
+            }
+        }
+
+        function onAdminCategoryChange(newCategory) {
+            selectedAdminCategory = newCategory;
+            const catScreens = screens.filter(s => (s.category || 'Allmänna Skärmar') === newCategory);
+            catScreens.sort((a, b) => a.name.localeCompare(b.name, 'sv'));
+
+            if (catScreens.length > 0) {
+                const current = getActiveScreen();
+                if (!current || (current.category || 'Allmänna Skärmar') !== newCategory) {
+                    activeScreenId = catScreens[0].id;
+                }
+                renderAdminDashboard();
+            } else {
+                renderScreenDropdowns();
+                showToast(`Kategorin "${newCategory}" har inga skärmar.`);
+            }
+        }
+
+        function onAdminScreenChange(newScreenId) {
+            if (!newScreenId) return;
+            activeScreenId = newScreenId;
+            renderAdminDashboard();
+        }
+
+        // Bakåtkompatibel alias
+        function renderScreenTabs() {
+            renderScreenDropdowns();
         }
 
         function renderVisualizerCanvas(current) {
@@ -1627,16 +1700,18 @@
             setupPlayerView();
         }
 
-        function populateCategoryDropdown() {
+        function populateCategoryDropdown(preselectedCategory = null) {
             const select = document.getElementById('screen-input-category-select');
             if (!select) return;
 
             const existingCats = getAllCategories();
             select.innerHTML = '';
+            const targetCat = preselectedCategory || selectedAdminCategory || (getActiveScreen() ? getActiveScreen().category : null);
             existingCats.forEach(cat => {
                 const opt = document.createElement('option');
                 opt.value = cat;
                 opt.innerText = cat;
+                if (cat === targetCat) opt.selected = true;
                 select.appendChild(opt);
             });
 
