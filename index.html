@@ -54,6 +54,14 @@
         .aspect-16-9 {
             aspect-ratio: 16 / 9;
         }
+
+        .kiosk-aspect-frame {
+            aspect-ratio: 16 / 9;
+            width: min(100vw, calc(100vh * (16 / 9)));
+            height: min(100vh, calc(100vw * (9 / 16)));
+            max-width: 100vw;
+            max-height: 100vh;
+        }
     </style>
 </head>
 <body class="h-full font-sans antialiased flex flex-col justify-between overflow-x-hidden bg-slate-950 text-slate-100">
@@ -286,27 +294,36 @@
         </section>
 
         <!-- ==================== KIOSK PLAYER VIEW ==================== -->
-        <section id="view-player" class="hidden fixed inset-0 bg-black z-50 flex flex-col">
+        <section id="view-player" class="hidden fixed inset-0 bg-black z-50 flex items-center justify-center overflow-hidden">
             
-            <!-- Dynamic Multi-Zone Container (Enforces 16:9 / Fullscreen relative layout) -->
-            <div id="kiosk-zones-viewport" class="relative w-full h-full bg-slate-950 overflow-hidden">
-                <!-- Zone containers and scaled iframes injected here -->
+            <!-- Dynamic 16:9 Aspect Frame Container -->
+            <div id="kiosk-aspect-frame" class="kiosk-aspect-frame relative bg-slate-950 overflow-hidden shadow-2xl flex items-center justify-center">
+                <!-- Dynamic Multi-Zone Container -->
+                <div id="kiosk-zones-viewport" class="relative w-full h-full bg-slate-950 overflow-hidden">
+                    <!-- Zone containers and scaled iframes injected here -->
+                </div>
+
+                <!-- Global Clock Overlay -->
+                <div id="kiosk-clock-overlay" class="hidden absolute text-white font-bold tracking-tight drop-shadow-md z-40 pointer-events-none" style="text-shadow: 0 4px 12px rgba(0,0,0,0.8);"></div>
             </div>
 
-            <!-- Global Clock Overlay -->
-            <div id="kiosk-clock-overlay" class="hidden absolute text-white font-bold tracking-tight drop-shadow-md z-40 pointer-events-none" style="text-shadow: 0 4px 12px rgba(0,0,0,0.8);"></div>
-
             <!-- Player Controls Overlay (Hoverable) -->
-            <div id="player-controls-overlay" class="absolute bottom-4 left-4 right-4 bg-slate-900/90 border border-slate-800 backdrop-blur rounded-2xl px-5 py-3 flex items-center justify-between text-xs text-slate-300 shadow-2xl opacity-0 hover:opacity-100 transition-opacity duration-300 z-50">
+            <div id="player-controls-overlay" class="absolute bottom-4 left-4 right-4 max-w-4xl mx-auto bg-slate-900/90 border border-slate-800 backdrop-blur rounded-2xl px-5 py-3 flex items-center justify-between text-xs text-slate-300 shadow-2xl opacity-0 hover:opacity-100 transition-opacity duration-300 z-50">
                 <div class="flex items-center space-x-3">
                     <span id="current-screen-player-title" class="font-bold text-white">Skärmnamn</span>
+                    <span id="current-screen-player-category" class="text-[11px] font-medium bg-slate-800 text-slate-300 border border-slate-700 px-2.5 py-0.5 rounded-full flex items-center gap-1">
+                        <i class="fa-solid fa-folder text-indigo-400 text-[10px]"></i> <span id="current-screen-player-category-text">Kategori</span>
+                    </span>
                     <span id="current-screen-zones-info" class="text-slate-400 font-mono">-- Zoner</span>
                 </div>
                 
                 <div class="flex items-center space-x-3">
-                    <select id="player-screen-selector" onchange="changePlayerScreenFromDropdown(this.value)" class="bg-slate-950 border border-slate-700 text-xs rounded-xl px-2.5 py-1 text-slate-200 focus:outline-none">
-                        <!-- Populated dynamically -->
-                    </select>
+                    <div class="flex items-center space-x-1.5">
+                        <label for="player-screen-selector" class="text-[11px] text-slate-400 font-medium">Skärm:</label>
+                        <select id="player-screen-selector" onchange="changePlayerScreenFromDropdown(this.value)" class="bg-slate-950 border border-slate-700 text-xs rounded-xl px-2.5 py-1 text-slate-200 focus:outline-none cursor-pointer">
+                            <!-- Populated dynamically with screens in active category -->
+                        </select>
+                    </div>
 
                     <button onclick="switchMode('admin')" class="bg-slate-800 hover:bg-slate-700 text-slate-200 px-3.5 py-1.5 rounded-xl flex items-center transition">
                         <i class="fa-solid fa-xmark mr-1.5"></i> Stäng Kiosk
@@ -835,11 +852,19 @@
                 requestWakeLock();
             } else {
                 if (playerView) playerView.classList.add('hidden');
-                if (adminView) adminView.classList.add('hidden');
-                if (header) header.classList.add('hidden');
-                if (loginView) loginView.classList.remove('hidden');
                 clearPlayerIntervals();
                 releaseWakeLock();
+
+                if (currentAdminPin || isPreviewEnv()) {
+                    if (adminView) adminView.classList.remove('hidden');
+                    if (header) header.classList.remove('hidden');
+                    if (loginView) loginView.classList.add('hidden');
+                    renderAdminDashboard();
+                } else {
+                    if (adminView) adminView.classList.add('hidden');
+                    if (header) header.classList.add('hidden');
+                    if (loginView) loginView.classList.remove('hidden');
+                }
             }
         }
 
@@ -1620,7 +1645,7 @@
                     clockOverlay.classList.remove('hidden');
                     clockOverlay.style.left = `${current.clock.x}%`;
                     clockOverlay.style.top = `${current.clock.y}%`;
-                    clockOverlay.style.fontSize = `${current.clock.size}vw`;
+                    clockOverlay.style.fontSize = `calc(${current.clock.size} * min(1vw, 1.7778vh))`;
                     
                     const updateClock = () => {
                         const now = new Date();
@@ -1634,10 +1659,15 @@
                 }
             }
 
+            // Filter screens to active category and sort alphabetically
+            const activeCategory = current ? (current.category || 'Allmänna Skärmar') : (selectedAdminCategory || 'Allmänna Skärmar');
+            const categoryScreens = screens.filter(s => (s.category || 'Allmänna Skärmar') === activeCategory);
+            categoryScreens.sort((a, b) => a.name.localeCompare(b.name, 'sv'));
+
             const dropdown = document.getElementById('player-screen-selector');
             if (dropdown) {
                 dropdown.innerHTML = '';
-                screens.forEach(s => {
+                categoryScreens.forEach(s => {
                     const opt = document.createElement('option');
                     opt.value = s.id;
                     opt.innerText = s.name;
@@ -1648,6 +1678,9 @@
 
             if (document.getElementById('current-screen-player-title')) {
                 document.getElementById('current-screen-player-title').innerText = current ? current.name : 'Kiosk Player';
+            }
+            if (document.getElementById('current-screen-player-category-text')) {
+                document.getElementById('current-screen-player-category-text').innerText = activeCategory;
             }
             if (document.getElementById('current-screen-zones-info')) {
                 document.getElementById('current-screen-zones-info').innerText = current ? `${current.zoneCount} Zoner` : '';
