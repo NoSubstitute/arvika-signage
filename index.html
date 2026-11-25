@@ -74,7 +74,7 @@
             <div>
                 <h1 class="text-base md:text-lg font-bold text-white tracking-tight flex items-center gap-2">
                     Arvika Signage Manager
-                    <span id="app-version-badge" class="bg-indigo-950/80 text-indigo-300 text-[11px] px-2.5 py-0.5 rounded-full border border-indigo-800/80 font-mono font-medium">v1.2.0</span>
+                    <span id="app-version-badge" class="text-xs font-normal text-slate-400 font-mono">v1.3.0</span>
                 </h1>
                 <p class="text-xs text-slate-400">Skärmhantering för arvika.com | Kiosk Player</p>
             </div>
@@ -308,18 +308,26 @@
             </div>
 
             <!-- Player Controls Overlay (Hoverable) -->
-            <div id="player-controls-overlay" class="absolute bottom-4 left-4 right-4 max-w-4xl mx-auto bg-slate-900/90 border border-slate-800 backdrop-blur rounded-2xl px-5 py-3 flex items-center justify-between text-xs text-slate-300 shadow-2xl opacity-0 hover:opacity-100 transition-opacity duration-300 z-50">
-                <div class="flex items-center space-x-3">
+            <div id="player-controls-overlay" class="absolute bottom-4 left-4 right-4 max-w-4xl mx-auto bg-slate-900/90 border border-slate-800 backdrop-blur rounded-2xl px-5 py-3 flex flex-wrap items-center justify-between gap-3 text-xs text-slate-300 shadow-2xl opacity-0 hover:opacity-100 transition-opacity duration-300 z-50">
+                <div class="flex items-center space-x-3 shrink-0">
                     <span id="current-screen-player-title" class="font-bold text-white">Skärmnamn</span>
-                    <span id="current-screen-player-category" class="text-[11px] font-medium bg-slate-800 text-slate-300 border border-slate-700 px-2.5 py-0.5 rounded-full flex items-center gap-1">
-                        <i class="fa-solid fa-folder text-indigo-400 text-[10px]"></i> <span id="current-screen-player-category-text">Kategori</span>
-                    </span>
                     <span id="current-screen-zones-info" class="text-slate-400 font-mono">-- Zoner</span>
                 </div>
                 
-                <div class="flex items-center space-x-3">
+                <div class="flex flex-wrap items-center space-x-3 gap-y-2">
                     <div class="flex items-center space-x-1.5">
-                        <label for="player-screen-selector" class="text-[11px] text-slate-400 font-medium">Skärm:</label>
+                        <label for="player-category-selector" class="text-[11px] text-slate-400 font-medium flex items-center gap-1">
+                            <i class="fa-solid fa-folder text-indigo-400 text-[10px]"></i> Kategori:
+                        </label>
+                        <select id="player-category-selector" onchange="changePlayerCategoryFromDropdown(this.value)" class="bg-slate-950 border border-slate-700 text-xs rounded-xl px-2.5 py-1 text-slate-200 focus:outline-none cursor-pointer">
+                            <!-- Populated dynamically with all categories -->
+                        </select>
+                    </div>
+
+                    <div class="flex items-center space-x-1.5">
+                        <label for="player-screen-selector" class="text-[11px] text-slate-400 font-medium flex items-center gap-1">
+                            <i class="fa-solid fa-tv text-indigo-400 text-[10px]"></i> Skärm:
+                        </label>
                         <select id="player-screen-selector" onchange="changePlayerScreenFromDropdown(this.value)" class="bg-slate-950 border border-slate-700 text-xs rounded-xl px-2.5 py-1 text-slate-200 focus:outline-none cursor-pointer">
                             <!-- Populated dynamically with screens in active category -->
                         </select>
@@ -1701,8 +1709,24 @@
                 }
             }
 
+            // Populate Category selector in Player View
+            const allCats = getAllCategories();
+            const activeCategory = current ? (current.category || 'Allmänna Skärmar') : (selectedAdminCategory || allCats[0] || 'Allmänna Skärmar');
+            selectedAdminCategory = activeCategory;
+
+            const catDropdown = document.getElementById('player-category-selector');
+            if (catDropdown) {
+                catDropdown.innerHTML = '';
+                allCats.forEach(cat => {
+                    const opt = document.createElement('option');
+                    opt.value = cat;
+                    opt.innerText = cat;
+                    if (cat.toLowerCase() === activeCategory.toLowerCase()) opt.selected = true;
+                    catDropdown.appendChild(opt);
+                });
+            }
+
             // Filter screens to active category and sort alphabetically with natural number ordering
-            const activeCategory = current ? (current.category || 'Allmänna Skärmar') : (selectedAdminCategory || 'Allmänna Skärmar');
             let categoryScreens = screens.filter(s => (s.category || 'Allmänna Skärmar').trim().toLowerCase() === activeCategory.trim().toLowerCase());
             if (categoryScreens.length === 0) {
                 categoryScreens = [...screens];
@@ -1723,9 +1747,6 @@
 
             if (document.getElementById('current-screen-player-title')) {
                 document.getElementById('current-screen-player-title').innerText = current ? current.name : 'Kiosk Player';
-            }
-            if (document.getElementById('current-screen-player-category-text')) {
-                document.getElementById('current-screen-player-category-text').innerText = activeCategory;
             }
             if (document.getElementById('current-screen-zones-info')) {
                 document.getElementById('current-screen-zones-info').innerText = current ? `${current.zoneCount} Zoner` : '';
@@ -1771,6 +1792,19 @@
                     playerIntervals.push(timerId);
                 }
             });
+        }
+
+        function changePlayerCategoryFromDropdown(newCategory) {
+            selectedAdminCategory = newCategory;
+            const categoryScreens = screens.filter(s => (s.category || 'Allmänna Skärmar').trim().toLowerCase() === newCategory.trim().toLowerCase());
+            categoryScreens.sort((a, b) => (a.name || '').localeCompare(b.name || '', 'sv', { numeric: true, sensitivity: 'base' }));
+
+            if (categoryScreens.length > 0) {
+                activeScreenId = categoryScreens[0].id;
+                setupPlayerView();
+            } else {
+                showToast(`Kategorin "${newCategory}" har inga skärmar.`);
+            }
         }
 
         function changePlayerScreenFromDropdown(screenId) {
