@@ -164,8 +164,8 @@
                             <span id="active-screen-category-badge" class="bg-slate-800 text-slate-300 border border-slate-700 text-xs px-3 py-1 rounded-full font-medium flex items-center gap-1.5">
                                 <i class="fa-solid fa-folder text-indigo-400 text-[10px]"></i> <span id="active-screen-category-text">Kategori</span>
                             </span>
-                            <button onclick="openEditScreenModal()" class="bg-slate-800/80 hover:bg-slate-700 text-slate-300 text-xs px-2.5 py-1 rounded-lg border border-slate-700 transition flex items-center" title="Flytta skärm / Ändra detaljer">
-                                <i class="fa-solid fa-right-left text-indigo-400 mr-1.5"></i> Flytta / Redigera
+                            <button onclick="openEditScreenModal()" class="bg-slate-800/80 hover:bg-slate-700 text-slate-300 text-xs px-2.5 py-1 rounded-lg border border-slate-700 transition flex items-center" title="Redigera skärmdetaljer">
+                                <i class="fa-solid fa-pen-to-square text-indigo-400 mr-1.5"></i> Redigera
                             </button>
                             <span id="active-screen-zone-badge" class="bg-indigo-950 text-indigo-300 border border-indigo-700/50 text-xs px-3 py-1 rounded-full font-medium">4 Zoner</span>
                         </div>
@@ -785,6 +785,10 @@
         }
 
         let currentAdminPin = '';
+        try {
+            currentAdminPin = sessionStorage.getItem('arvika_admin_pin') || '';
+        } catch(e) {}
+        let userWasInAdmin = !!currentAdminPin;
 
         async function attemptLogin() {
             const pinInput = document.getElementById('admin-pin-input');
@@ -810,6 +814,10 @@
                     const data = await res.json();
                     if (data.status === 'success') {
                         currentAdminPin = pin;
+                        userWasInAdmin = true;
+                        try {
+                            sessionStorage.setItem('arvika_admin_pin', pin);
+                        } catch(e) {}
                         document.getElementById('view-login').classList.add('hidden');
                         document.getElementById('view-admin').classList.remove('hidden');
                         document.getElementById('app-header').classList.remove('hidden');
@@ -844,6 +852,9 @@
             const header = document.getElementById('app-header');
 
             if (mode === 'player') {
+                if (adminView && !adminView.classList.contains('hidden')) {
+                    userWasInAdmin = true;
+                }
                 if (adminView) adminView.classList.add('hidden');
                 if (loginView) loginView.classList.add('hidden');
                 if (playerView) playerView.classList.remove('hidden');
@@ -855,7 +866,8 @@
                 clearPlayerIntervals();
                 releaseWakeLock();
 
-                if (currentAdminPin || isPreviewEnv()) {
+                // If user was previously in admin view, has PIN, or is preview env, return directly to admin!
+                if (userWasInAdmin || currentAdminPin || isPreviewEnv()) {
                     if (adminView) adminView.classList.remove('hidden');
                     if (header) header.classList.remove('hidden');
                     if (loginView) loginView.classList.add('hidden');
@@ -1624,8 +1636,38 @@
 
         let masterKioskReloadInterval = null;
 
+        function fitKioskAspectRatio() {
+            const frame = document.getElementById('kiosk-aspect-frame');
+            if (!frame) return;
+            const winW = window.innerWidth;
+            const winH = window.innerHeight;
+            const targetRatio = 16 / 9;
+            const currentRatio = winW / winH;
+
+            let w, h;
+            if (currentRatio > targetRatio) {
+                // Skärmen/fönstret är bredare än 16:9 (svarta kanter på sidorna)
+                h = winH;
+                w = Math.round(h * targetRatio);
+            } else {
+                // Skärmen/fönstret är högre än 16:9 (svarta kanter uppe och nere)
+                w = winW;
+                h = Math.round(w / targetRatio);
+            }
+            frame.style.width = `${w}px`;
+            frame.style.height = `${h}px`;
+        }
+
+        window.addEventListener('resize', () => {
+            const playerView = document.getElementById('view-player');
+            if (playerView && !playerView.classList.contains('hidden')) {
+                fitKioskAspectRatio();
+            }
+        });
+
         function setupPlayerView() {
             clearPlayerIntervals();
+            fitKioskAspectRatio();
             
             // Master Auto-Reload: Fetch the latest JSON from the server every 10 minutes
             // If the data has changed (or to just keep the kiosk fresh), reload the page.
@@ -1659,10 +1701,13 @@
                 }
             }
 
-            // Filter screens to active category and sort alphabetically
+            // Filter screens to active category and sort alphabetically with natural number ordering
             const activeCategory = current ? (current.category || 'Allmänna Skärmar') : (selectedAdminCategory || 'Allmänna Skärmar');
-            const categoryScreens = screens.filter(s => (s.category || 'Allmänna Skärmar') === activeCategory);
-            categoryScreens.sort((a, b) => a.name.localeCompare(b.name, 'sv'));
+            let categoryScreens = screens.filter(s => (s.category || 'Allmänna Skärmar').trim().toLowerCase() === activeCategory.trim().toLowerCase());
+            if (categoryScreens.length === 0) {
+                categoryScreens = [...screens];
+            }
+            categoryScreens.sort((a, b) => (a.name || '').localeCompare(b.name || '', 'sv', { numeric: true, sensitivity: 'base' }));
 
             const dropdown = document.getElementById('player-screen-selector');
             if (dropdown) {
